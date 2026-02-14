@@ -1,0 +1,23 @@
+.labeled-input-container {
+	display: flex;
+	flex-direction: column;
+	position: relative;
+	border: 1px solid #ccc;
+	padding: 1em 0.5em;
+	width: calc(100% - 1.1em);
+	& > .input-label {
+		font-size: 1em;
+		position: absolute;
+		font-weight: bold;
+		top: 0;
+		left: 0.5em;
+		transform: translateY(-65%);
+		background-color: var(--bg-color);
+		color: white;
+		padding: 0 0.2em;
+	}
+	& > input {
+		font-size: 1.2em;
+		height: 2em;
+	}
+}

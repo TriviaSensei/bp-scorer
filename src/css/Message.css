@@ -1,0 +1,18 @@
+.message-div {
+	position: absolute;
+	z-index: 1000;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	padding: 1em;
+	border: 1px solid white;
+	border-radius: 5px;
+	&.info {
+		background-color: var(--msg-info);
+		color: black;
+	}
+	&.error {
+		background-color: var(--msg-error);
+		color: white;
+	}
+}

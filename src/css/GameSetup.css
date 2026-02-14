@@ -1,0 +1,20 @@
+#game-setup-area {
+	margin: auto;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	#game-setup-form {
+		width: 100%;
+		margin: auto;
+		display: flex;
+		flex-direction: column;
+		input[type='file'] {
+			display: none;
+		}
+
+		& > * {
+			margin: auto;
+			margin-bottom: 2em;
+		}
+	}
+}
