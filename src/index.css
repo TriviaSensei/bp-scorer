@@ -1,9 +1,11 @@
 :root {
+	--text-color: #eee;
 	--bg-color: #242424;
 	--dark-blue: #17113d;
 	--light-blue: #28a7d5;
-	--msg-info: #0f7;
+	--msg-info: #a7ff8f;
 	--msg-error: #800;
+	--light-gray: #aaa;
 
 	font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
 	line-height: 1.5;
@@ -32,6 +34,7 @@ body {
 	overflow-y: hidden;
 	height: 100%;
 	background-color: var(--bg-color);
+	color: var(--text-color);
 }
 
 body {

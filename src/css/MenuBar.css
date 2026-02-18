@@ -1,4 +1,5 @@
 #menu-bar {
+	background-color: var(--light-gray);
 	font-size: 0.8em;
 	.dropdown-item:hover {
 		background-color: var(--light-blue);

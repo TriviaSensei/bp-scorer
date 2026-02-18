@@ -21,7 +21,8 @@ export default function TeamForm() {
 	const handleQuestionChange = (e) =>
 		setCurrentQuestion(Number(e.target.value));
 
-	const selectedRoundData = gameData?.dataFile?.data?.rounds[selectedRound];
+	const rounds = gameData?.dataFile?.data?.rounds;
+	const selectedRoundData = rounds[selectedRound];
 	const questionDisabled =
 		selectedRound.toString() === '-1' ||
 		isNaN(Number(selectedRoundData?.round));
@@ -32,7 +33,7 @@ export default function TeamForm() {
 				<Row sm={1} md={2} lg={4}>
 					<Col>
 						<div className="d-flex flex-row">
-							<div className="labeled-input">
+							<div className="labeled-input f-1">
 								<div className="input-label">Round</div>
 								<select
 									id="round-select"
@@ -52,7 +53,7 @@ export default function TeamForm() {
 								</select>
 							</div>
 
-							<div className="labeled-input">
+							<div className="labeled-input f-1">
 								<div className="input-label">Question</div>
 								<select
 									id="question-select"
@@ -73,11 +74,31 @@ export default function TeamForm() {
 						</div>
 					</Col>
 					<Col>
-						<div className="labeled-input">
+						<div className="labeled-input f-1">
 							<div className="input-label">Team</div>
 							<input type="text"></input>
 						</div>
 					</Col>
+					{selectedRound >= 0 && selectedRound < rounds.length - 1 ? (
+						<Col>
+							<div className="d-flex flex-row">
+								<div className="labeled-input">
+									<div className="input-label">Score</div>
+									<input type="number" min="0"></input>
+								</div>
+								{isNaN(Number(selectedRoundData.round)) ? (
+									''
+								) : (
+									<div className="labeled-input">
+										<div className="input-label">Wager</div>
+										<input type="number" min="1"></input>
+									</div>
+								)}
+							</div>
+						</Col>
+					) : (
+						''
+					)}
 				</Row>
 			</form>
 		</Container>

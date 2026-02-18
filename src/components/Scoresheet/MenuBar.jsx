@@ -12,7 +12,7 @@ export default function MenuBar(props) {
 	const menuItems = props.items;
 
 	return (
-		<Navbar id="menu-bar" expand="lg" className="bg-body-tertiary">
+		<Navbar id="menu-bar" expand="lg" className="">
 			<Container>
 				<Navbar.Toggle aria-controls="basic-navbar-nav" />
 				<Navbar.Collapse id="basic-navbar-nav">

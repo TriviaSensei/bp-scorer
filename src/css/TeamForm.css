@@ -1,9 +1,9 @@
 #data-entry-form {
 	margin-top: 1em;
 	.labeled-input {
-		flex: 1;
 		display: flex;
 		flex-direction: column;
+		position: relative;
 		&:not(:first-child) {
 			margin-left: 1em;
 		}
@@ -12,8 +12,23 @@
 			margin-bottom: 0.2em;
 		}
 		select,
-		input[type='text'] {
+		input[type='text'],
+		input[type='number'] {
 			height: 2.5em;
+		}
+
+		input[type='number'] {
+			max-width: 5em;
+		}
+
+		.suggestion-box {
+			position: absolute;
+			width: 100%;
+			left: 0%;
+			top: 100%;
+			z-index: 2;
+			background-color: var(--text-color);
+			color: var(--bg-color);
 		}
 	}
 }
