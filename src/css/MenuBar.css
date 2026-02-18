@@ -1,0 +1,12 @@
+#menu-bar {
+	font-size: 0.8em;
+	.dropdown-item:hover {
+		background-color: var(--light-blue);
+	}
+	.menu-option {
+		font-size: 0.8em;
+		.menu-option-name {
+			margin-right: 3em;
+		}
+	}
+}

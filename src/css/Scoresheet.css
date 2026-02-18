@@ -1,0 +1,20 @@
+#scoresheet {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	color: white;
+	.header-col {
+		font-weight: bold;
+		text-orientation: mixed;
+		writing-mode: vertical-rl;
+		transform: rotate(180deg);
+	}
+	.subtotal-col {
+		background-color: #f4b084;
+	}
+
+	.error-cell {
+		color: #9c0006;
+		background-color: #ffc7ce;
+	}
+}

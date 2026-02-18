@@ -4,7 +4,6 @@ import '../css/Message.css';
 import { MessageContext } from '../contexts/MessageContext';
 export default function Message() {
 	const { message } = useContext(MessageContext);
-	console.log(message);
 	return (
 		<div
 			className={`message-div ${!message?.shown ? 'd-none' : message.status}`}

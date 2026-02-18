@@ -3,8 +3,9 @@ import React from 'react';
 import '../css/LabeledInput.css';
 
 export default function LabeledInput(props) {
-	const handleLocalStorage = (e) => {
-		localStorage.setItem(`bp-${props.name}`, e.target.value);
+	const handleChange = (e) => {
+		if (props.ls) localStorage.setItem(`bp-${props.name}`, e.target.value);
+		if (props.onChange) props.onChange(e);
 	};
 
 	const defaultValue = props.defaultValue
@@ -19,8 +20,9 @@ export default function LabeledInput(props) {
 			<input
 				type={props.type || 'text'}
 				name={props.name}
+				value={props.value}
 				defaultValue={defaultValue}
-				onChange={props.ls ? handleLocalStorage : () => {}}
+				onChange={handleChange}
 			/>
 		</div>
 	);

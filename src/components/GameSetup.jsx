@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react';
+import { useContext, useRef } from 'react';
 
 import Button from 'react-bootstrap/Button';
 import moment from 'moment-timezone';
@@ -14,6 +14,7 @@ import { MessageContext } from '../contexts/MessageContext';
 export default function GameSetup() {
 	const { gameData, setGameData } = useContext(GameDataContext);
 	const { showMessage } = useContext(MessageContext);
+	const gameFileRef = useRef();
 	const tz = moment.tz.guess();
 	const today = moment.tz(new Date(), tz).format().split('T')[0];
 
@@ -44,10 +45,10 @@ export default function GameSetup() {
 			const m = firstCell.match(/round [1-5]/g);
 			if (m) {
 				//if it is, see if it's also introducing an intermediate round in the next cell, which we should push first
-				['picture', 'handout'].some((rd) => {
-					if (row[1]?.toString().toLowerCase().indexOf(rd) >= 0) {
+				['Picture', 'Handout'].some((rd) => {
+					if (row[1]?.toString().toLowerCase().indexOf(rd.toLowerCase()) >= 0) {
 						toReturn.rounds.push({
-							round: `${rd} round`,
+							round: `${rd}`,
 						});
 						return true;
 					}
@@ -77,7 +78,7 @@ export default function GameSetup() {
 				)
 			) {
 				toReturn.rounds.push({
-					round: 'audio round',
+					round: 'Audio',
 					questions: [],
 				});
 				currentRound = 'audio';
@@ -88,7 +89,7 @@ export default function GameSetup() {
 				firstCell.indexOf('part') >= 0
 			) {
 				toReturn.rounds.push({
-					round: 'three-part question',
+					round: '3-Part Q',
 					question: row[1],
 					answers: row[2].split('\n'),
 				});
@@ -96,7 +97,7 @@ export default function GameSetup() {
 			//introducing the final?
 			else if (firstCell.indexOf('final') >= 0) {
 				toReturn.rounds.push({
-					round: 'final question',
+					round: 'Final',
 					category: row[1],
 					question: row[2],
 					answer: row[3],
@@ -106,7 +107,7 @@ export default function GameSetup() {
 			//introducing the tiebreaker?
 			else if (firstCell.indexOf('tiebreaker') >= 0) {
 				toReturn.rounds.push({
-					round: 'tiebreaker',
+					round: 'Tiebreaker',
 					question: row[2],
 					answer: row[3],
 				});
@@ -126,7 +127,7 @@ export default function GameSetup() {
 			//regular question
 			else if ((typeof row[0]).toLowerCase() === 'number') {
 				if (currentRound === 'audio') {
-					if (row.length < 3)
+					if (row.length < 3 || !row[0] || !row[1] || !row[2])
 						return errors.push({
 							row: i + 1,
 							message: `Invalid song - title, artist, or number missing`,
@@ -137,7 +138,7 @@ export default function GameSetup() {
 						artist: row[2],
 					});
 				} else {
-					if (row.length < 4)
+					if (row.length < 4 || !row[0] || !row[1] || !row[2] || !row[3])
 						return errors.push({
 							row: i + 1,
 							message: `Invalid question - number, category, text, or answer missing`,
@@ -154,13 +155,14 @@ export default function GameSetup() {
 			}
 		});
 
+		//verify each round has 4 questions and the music round has 6 songs listed
 		toReturn.rounds.forEach((rd) => {
 			if ((typeof rd.round).toLowerCase() === 'number') {
 				if (rd.questions.length !== 4)
 					errors.push({
 						message: `Round ${rd.round} has only ${rd.questions.length} questions (expecting 4)`,
 					});
-			} else if (rd.round.toLowerCase() === 'audio round')
+			} else if (rd.round.toLowerCase() === 'audio')
 				if (rd.questions.length !== 6)
 					errors.push({
 						message: `Audio round has only ${rd.questions.length} questions (expecting 6)`,
@@ -177,7 +179,16 @@ export default function GameSetup() {
 					},
 				};
 			});
-		else console.log(errors);
+		else {
+			setGameData((prev) => {
+				return {
+					...prev,
+					dataFile: null,
+					errors,
+				};
+			});
+			gameFileRef.current.value = null;
+		}
 	};
 
 	const handleAnswerFile = (e) => {
@@ -193,13 +204,13 @@ export default function GameSetup() {
 					},
 				};
 			});
+			e.target.value = null;
 		} else return showMessage('error', 'PDF file required for handout answers');
 	};
 
 	const handleAudioFile = (e) => {
 		const file = e.target?.files[0];
 		if (!file) return showMessage('error', 'No audio round file selected');
-		console.log(file);
 		if (file.type.toLowerCase().indexOf('audio') >= 0) {
 			setGameData((prev) => {
 				return {
@@ -210,25 +221,57 @@ export default function GameSetup() {
 					},
 				};
 			});
+			e.target.value = null;
 		} else return showMessage('error', 'MP3 file required for handout answers');
+	};
+
+	const setGameDataField = (field) => {
+		return (e) => {
+			setGameData((prev) => {
+				const newData = {
+					...prev,
+				};
+				console.log(e.target.value);
+				newData[field] = e.target.value;
+				return newData;
+			});
+		};
 	};
 
 	return (
 		<div id="game-setup-area" className="no-select">
 			<form id="game-setup-form">
-				<LabeledInput name={'host-name'} label={'Host name'} ls />
-				<LabeledInput name={'venue-name'} label={'Venue name'} ls />
+				<LabeledInput
+					name={'host-name'}
+					label={'Host name'}
+					onChange={setGameDataField('host')}
+					ls
+				/>
+				<LabeledInput
+					name={'venue-name'}
+					label={'Venue name'}
+					onChange={setGameDataField('venue')}
+					ls
+				/>
+				<LabeledInput
+					name={'venue-location'}
+					label={'Venue location'}
+					onChange={setGameDataField('location')}
+					ls
+				/>
 				<LabeledInput
 					name={'game-date'}
 					label={'Date'}
 					type="date"
 					defaultValue={today}
+					onChange={setGameDataField('date')}
 				/>
 				<input
 					type="file"
 					id="game-file"
 					accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 					onChange={handleGameFile}
+					ref={gameFileRef}
 				></input>
 				<label
 					htmlFor="game-file"
