@@ -7,8 +7,13 @@
 	padding: 1em;
 	border: 1px solid white;
 	border-radius: 5px;
+	z-index: 2000;
 	&.info {
 		background-color: var(--msg-info);
+		color: black;
+	}
+	&.warning {
+		background-color: yellow;
 		color: black;
 	}
 	&.error {

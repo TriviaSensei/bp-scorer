@@ -9,6 +9,7 @@ import AnnouncementsModal from './AnnouncementsModal';
 import '../css/Scoresheet.css';
 import MenuBar from './Scoresheet/MenuBar';
 import TeamForm from './Scoresheet/TeamForm';
+import ScoreTable from './ScoreTable';
 
 export default function Scoresheet() {
 	const { gameData, setGameData } = useContext(GameDataContext);
@@ -248,6 +249,7 @@ export default function Scoresheet() {
 
 	const handleKey = useCallback(
 		(e) => {
+			if (!e.key) return;
 			menuItems.some((menu) => {
 				return menu.options.some((item) => {
 					if (
@@ -313,7 +315,7 @@ export default function Scoresheet() {
 					showMessage(
 						'info',
 						`Existing game data for ${gameData.venue} on ${gameData.date} reloaded`,
-						1500,
+						2000,
 					);
 				}
 				//if not successful, set the LS item to the current game score array (probably empty)
@@ -357,6 +359,8 @@ export default function Scoresheet() {
 						selectedQuestion,
 						setCurrentRound,
 						setCurrentQuestion,
+						selectedTeam,
+						setSelectedTeam,
 					}}
 				>
 					<AnnouncementsModal
@@ -368,6 +372,7 @@ export default function Scoresheet() {
 					/>
 					<MenuBar items={menuItems} />
 					{selectedRound !== null ? <TeamForm /> : ''}
+					<ScoreTable />
 				</SelectionContext.Provider>
 			</AnnouncementsContext.Provider>
 		</div>

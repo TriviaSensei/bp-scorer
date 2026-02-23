@@ -1,0 +1,151 @@
+@keyframes color-fade {
+	from {
+		background-color: var(--light-blue);
+	}
+	to {
+		background-color: var(--light-gray);
+	}
+}
+
+#score-table {
+	overflow: auto;
+	max-height: 60vh;
+	max-width: 100%;
+	background-color: #fff;
+	padding: 1em 0;
+	position: relative;
+	table {
+		font-size: 0.75em;
+		td,
+		th {
+			color: black;
+			text-align: center;
+		}
+
+		tr > td:first-child,
+		tr > th:first-child {
+			padding: 0.2em;
+			padding-left: 1em;
+			position: sticky;
+			left: calc(0% - 2px);
+			z-index: 100;
+			padding-left: 1em;
+			text-align: left;
+		}
+		th.va-b {
+			vertical-align: bottom;
+		}
+		thead {
+			.ulc {
+				border-top: 2px solid black;
+			}
+			.team-name-col {
+				min-width: min(50vw, 200px);
+			}
+			.team-name-header {
+				border-bottom: 1px solid black;
+			}
+			.header-col-c {
+				font-weight: bold;
+				text-align: center;
+			}
+			.header-col-l {
+				font-weight: bold;
+				text-align: left;
+			}
+			.question-header {
+				border: 2px solid black;
+				font-weight: bold;
+			}
+			.player-count-header {
+				text-align: left;
+				background-color: #ffd966;
+			}
+			.sw {
+				width: 2em;
+			}
+			.dw {
+				padding-left: 1em;
+				padding-right: 1em;
+			}
+			.points-header,
+			.wager-header {
+				text-align: left;
+				padding-top: 0.5em;
+				padding-bottom: 0.5em;
+				padding: 0.5em 0.2em;
+			}
+			.points-header {
+				border: 2px solid black;
+				border-right: 1px solid var(--dark-gray);
+				text-align: left;
+			}
+			.wager-header {
+				border: 2px solid black;
+				border-left: 1px solid var(--dark-gray);
+
+				text-align: left;
+			}
+		}
+
+		tbody {
+			tr,
+			td {
+				border: 1px solid black;
+			}
+			tr > td:first-child {
+				border: 1px solid black;
+			}
+			tr > td {
+				background-color: #fff;
+			}
+
+			td.team-name {
+				cursor: pointer;
+			}
+			tr.selected > td.team-name {
+				font-weight: bold;
+				background-color: var(--light-blue);
+			}
+
+			tr:nth-child(2n) > td {
+				background-color: #d9e1f2;
+			}
+
+			tr > td.error-cell {
+				color: #9c0006;
+				background-color: #ffc7ce;
+			}
+
+			tr.inactive {
+				color: var(--light-gray);
+			}
+		}
+
+		thead > tr,
+		tbody > tr {
+			td.subtotal-col {
+				background-color: #f4b084;
+			}
+
+			td.rank-col {
+				background-color: #a9d08e;
+			}
+
+			td.player-count-col {
+				background-color: #ffd966;
+			}
+		}
+
+		tr > th:first-child {
+			background-color: white;
+		}
+
+		.rotate {
+			text-orientation: mixed;
+			writing-mode: vertical-rl;
+			transform: rotate(180deg);
+			padding-top: 0.5em;
+		}
+	}
+}

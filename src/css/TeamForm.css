@@ -1,5 +1,6 @@
 #data-entry-form {
 	margin-top: 1em;
+	margin-bottom: 1em;
 	.labeled-input {
 		display: flex;
 		flex-direction: column;
@@ -29,6 +30,28 @@
 			z-index: 2;
 			background-color: var(--text-color);
 			color: var(--bg-color);
+			display: flex;
+			flex-direction: column;
+			.suggestion {
+				padding: 0.5em;
+				width: 100%;
+				text-wrap: nowrap;
+				cursor: pointer;
+			}
+			.suggestion.selected {
+				background-color: var(--light-blue);
+			}
+		}
+		.suggestion-box:empty {
+			display: none;
+		}
+
+		.submit-container {
+			margin-bottom: 0.2em;
+			input[type='submit'] {
+				height: 2.5em;
+				margin-bottom: 0.2em;
+			}
 		}
 	}
 }

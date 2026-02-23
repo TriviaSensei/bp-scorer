@@ -1,8 +1,12 @@
 #menu-bar {
 	background-color: var(--light-gray);
+	color: var(--dark-blue);
 	font-size: 0.8em;
 	.dropdown-item:hover {
 		background-color: var(--light-blue);
+	}
+	.nav-link.show {
+		color: var(--dark-blue);
 	}
 	.menu-option {
 		font-size: 0.8em;

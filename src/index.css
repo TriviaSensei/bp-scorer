@@ -5,7 +5,8 @@
 	--light-blue: #28a7d5;
 	--msg-info: #a7ff8f;
 	--msg-error: #800;
-	--light-gray: #aaa;
+	--light-gray: #ddd;
+	--dark-gray: #333;
 
 	font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
 	line-height: 1.5;
