@@ -5,18 +5,21 @@
 	top: 50%;
 	transform: translate(-50%, -50%);
 	padding: 1em;
-	border: 1px solid white;
 	border-radius: 5px;
 	z-index: 2000;
+	border: 1px solid;
 	&.info {
+		border-color: var(--msg-info-b);
 		background-color: var(--msg-info);
 		color: black;
 	}
 	&.warning {
+		border-color: var(--msg-warning-b);
 		background-color: yellow;
 		color: black;
 	}
 	&.error {
+		border-color: var(--msg-error-b);
 		background-color: var(--msg-error);
 		color: white;
 	}

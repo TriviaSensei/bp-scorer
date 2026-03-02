@@ -1,14 +1,38 @@
-import { useContext, useMemo, Fragment } from 'react';
-import { GameScoreContext } from '../contexts/GameScoreContext';
-import { GameDataContext } from '../contexts/GameDataContext';
+import { useContext, useMemo, Fragment, useEffect, useRef } from 'react';
+import { GameScoreContext } from '../../contexts/GameScoreContext';
+import { GameDataContext } from '../../contexts/GameDataContext';
 
-import '../css/ScoreTable.css';
-import { SelectionContext } from '../contexts/SelectionContext';
+import '../../css/ScoreTable.css';
+import { SelectionContext } from '../../contexts/SelectionContext';
 
-export default function ScoreTable() {
+function useArrayRef() {
+	const refs = [];
+	return [refs, (el) => el && refs.push(el)];
+}
+
+export default function ScoreTable({ openTeamInfo }) {
 	const { gameScore } = useContext(GameScoreContext);
 	const { gameData } = useContext(GameDataContext);
-	const { selectedTeam, setSelectedTeam } = useContext(SelectionContext);
+	const { selectedTeam, setSelectedTeam, selectedRound } =
+		useContext(SelectionContext);
+
+	const divRef = useRef();
+	const ulcRef = useRef();
+	const [elements, ref] = useArrayRef();
+
+	useEffect(() => {
+		if (selectedRound < 0 || selectedRound > elements.length - 1) return;
+		const el = elements[selectedRound];
+		if (!el) return;
+		// if (el) el.scrollIntoView();
+		const leftColRect = ulcRef.current.getBoundingClientRect();
+		const elRect = el.getBoundingClientRect();
+
+		const leftPos = leftColRect.left + leftColRect.width;
+		const diff = elRect.left - leftPos;
+		divRef.current.scrollLeft += diff;
+	}, [selectedRound, elements]);
+
 	const data = gameData?.dataFile?.data?.rounds;
 
 	const handleSelectTeam = (e) => {
@@ -19,13 +43,19 @@ export default function ScoreTable() {
 		else setSelectedTeam(team.id);
 	};
 
+	const handleDoubleClick = (e) => {
+		const id = e.target.getAttribute('data-id');
+		const team = gameScore.find((t) => t.id === id);
+		if (!team) return;
+		setSelectedTeam(team.id);
+		openTeamInfo();
+	};
+
 	const runningScores = useMemo(() => {
 		const rs = gameScore.map((team) => {
-			console.log(team.name);
 			let score = 0;
 			const len = data.length - 1;
 			const runningScore = team.scores.map((rd) => {
-				console.log(rd);
 				score += rd.scores.reduce((p, c) => {
 					if (!c) return p;
 					else if ((typeof c).toLowerCase() === 'number') return p + c;
@@ -36,7 +66,6 @@ export default function ScoreTable() {
 			while (runningScore.length < len) {
 				runningScore.push(score);
 			}
-			console.log(runningScore);
 			return {
 				name: team.name,
 				id: team.id,
@@ -74,40 +103,45 @@ export default function ScoreTable() {
 	}, [runningScores, data]);
 
 	if (!data) return <></>;
-
+	let firstHandoutRound = data.findIndex((rd) => rd.type !== 'wager');
 	return (
-		<div id="score-table" className="no-select">
+		<div id="score-table" className="no-select" ref={divRef}>
 			<table>
 				<thead>
 					{/*Top header row - round headers*/}
 					<tr>
-						<th className="sticky ulc">
+						{/*Upper-left corner cell - should always be empty */}
+						<th className="sticky ulc" ref={ulcRef}>
 							<div className="team-name-col"></div>
 						</th>
+						{/*Rest of top row */}
 						{data.map((rd, i) => {
-							if ((typeof rd.round).toLowerCase() === 'number')
+							if (rd.type === 'wager')
 								return (
 									<Fragment key={i}>
 										<th
 											className="header-col-c question-header"
 											colSpan={rd.questions.length * 2}
-										>{`Round ${rd.round}`}</th>
+											ref={ref}
+										>
+											{rd.title}
+										</th>
 										<th></th>
 										<th></th>
 									</Fragment>
 								);
-							else if (i === 1)
+							else if (i === firstHandoutRound) {
 								return (
 									<Fragment key={i}>
-										<th></th>
+										<th ref={ref}></th>
 										<th></th>
 										<th></th>
 									</Fragment>
 								);
-							else
+							} else
 								return (
 									<Fragment key={i}>
-										<th></th>
+										<th ref={ref}></th>
 										<th></th>
 									</Fragment>
 								);
@@ -122,7 +156,7 @@ export default function ScoreTable() {
 							0,
 						)}`}</th>
 						{data.map((rd, i) => {
-							if ((typeof rd.round).toLowerCase() === 'number') {
+							if (rd.type === 'wager') {
 								return (
 									<Fragment key={i}>
 										{rd.questions.map((q, j) => {
@@ -150,14 +184,14 @@ export default function ScoreTable() {
 										</td>
 									</Fragment>
 								);
-							} else if (i === 1) {
+							} else if (i === firstHandoutRound) {
 								return (
 									<Fragment key={i}>
 										<td
 											className="header-col-l question-header rotate dw"
 											rowSpan="2"
 										>
-											{rd.round}
+											{rd.title}
 										</td>
 										<td
 											className="player-count-header question-header rotate dw"
@@ -173,14 +207,14 @@ export default function ScoreTable() {
 										</td>
 									</Fragment>
 								);
-							} else if (rd.round.toLowerCase() !== 'tiebreaker') {
+							} else if (rd.type !== 'tiebreaker') {
 								return (
 									<Fragment key={i}>
 										<td
 											className="header-col-l question-header rotate dw"
 											rowSpan="2"
 										>
-											{rd.round}
+											{rd.title}
 										</td>
 										<td
 											className="header-col-l question-header subtotal-col rotate dw "
@@ -197,22 +231,12 @@ export default function ScoreTable() {
 					<tr>
 						<th className="va-b sticky team-name-header">Team Name</th>
 						{data.map((rd) => {
-							if ((typeof rd.round).toLowerCase() === 'number')
+							if (rd.type === 'wager')
 								return rd.questions.map((q, j) => {
 									return (
 										<Fragment key={j}>
-											<td
-												key={2 * j + 1}
-												className="header-col points-header rotate"
-											>
-												Pts
-											</td>
-											<td
-												key={j * 2}
-												className="header-col wager-header rotate"
-											>
-												Wager
-											</td>
+											<td className="header-col points-header rotate">Pts</td>
+											<td className="header-col wager-header rotate">Wager</td>
 										</Fragment>
 									);
 								});
@@ -231,17 +255,22 @@ export default function ScoreTable() {
 									key={i}
 									className={`${!team.active ? 'inactive' : ''} ${selectedTeam === team.id ? 'selected' : ''}`}
 								>
-									<td data-id={team.id} className={`team-name`}>
-										{team.name}
+									<td
+										data-id={team.id}
+										className={`team-name ${!team.active ? 'inactive' : ''}`}
+										onClick={handleSelectTeam}
+										onDoubleClick={handleDoubleClick}
+									>
+										{`${!team.active ? `😴 ` : ''}${team.name}`}
 									</td>
 									{data.map((r, j) => {
 										//the tiebreaker is in the data - nothing returned for that
-										if (j === data.length - 1)
+										if (r.type === 'tiebreaker')
 											return <Fragment key={j}></Fragment>;
 										//get the corresponding round from the team's scores
 										const teamRound = team.scores[j];
 										//if we're looking at a regular 4-question round
-										if ((typeof r.round).toLowerCase() === 'number') {
+										if (r.type === 'wager') {
 											//we want to return 8 cells with the wager and score
 											return (
 												<Fragment key={j}>
@@ -256,13 +285,17 @@ export default function ScoreTable() {
 															);
 
 														const wager = teamRound.wagers[k];
-														const invalidWager = teamRound.wagers.some(
-															(w, i) => w !== null && i !== k && w === wager,
-														);
+														const invalidWager =
+															wager !== null &&
+															teamRound.wagers.some(
+																(w, l) =>
+																	(l !== k && w === wager) ||
+																	!r.wagers.includes(wager),
+															);
 														//cell with points and wager if they've played this question
 														return (
 															<Fragment key={k}>
-																<td>{s === undefined ? '' : s}</td>
+																<td>{s >= 0 ? s : ''}</td>
 																<td
 																	className={`${invalidWager ? 'error-cell' : ''}`}
 																>
@@ -297,7 +330,9 @@ export default function ScoreTable() {
 																		: ''
 														}
 													>
-														{teamRound.scores[0]?.score || ''}
+														{teamRound.scores[0]?.score >= 0
+															? teamRound.scores[0].score
+															: ''}
 													</td>
 													{j === 1 ? (
 														<td className="player-count-col">

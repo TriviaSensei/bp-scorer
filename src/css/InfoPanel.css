@@ -1,0 +1,48 @@
+#info-panel {
+	background-color: var(--light-gray);
+	color: black;
+	padding: 1em;
+
+	.labeled-input-container {
+		margin-top: 0.9em;
+		border-color: black;
+		padding: 0.5em;
+		.input-label {
+			font-size: 0.8em;
+			color: black;
+			background-color: var(--light-gray);
+		}
+		input {
+			font-size: 0.8em;
+		}
+	}
+
+	.info-box {
+		display: flex;
+		flex-direction: column;
+		font-size: 0.9em;
+		margin-bottom: 0.5em;
+		width: 100%;
+		.title {
+			font-weight: bold;
+			margin-bottom: 0.2em;
+		}
+		.info-text {
+			width: 100%;
+			display: flex;
+			flex-direction: column;
+		}
+	}
+
+	.song-table {
+		tr {
+			border-bottom: 1px solid black;
+			font-size: 0.9em;
+		}
+	}
+	.song-no {
+		font-weight: bold;
+		padding-left: 0.5em;
+		padding-right: 0.5em;
+	}
+}

@@ -102,6 +102,9 @@
 
 			td.team-name {
 				cursor: pointer;
+				&.inactive {
+					color: var(--team-inactive);
+				}
 			}
 			tr.selected > td.team-name {
 				font-weight: bold;
@@ -125,11 +128,11 @@
 		thead > tr,
 		tbody > tr {
 			td.subtotal-col {
-				background-color: #f4b084;
+				background-color: var(--score-col);
 			}
 
 			td.rank-col {
-				background-color: #a9d08e;
+				background-color: var(--rank-col);
 			}
 
 			td.player-count-col {

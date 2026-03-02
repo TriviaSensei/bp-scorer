@@ -28,13 +28,13 @@ export default function TeamForm() {
 
 	const handleChangeScore = (e) => {
 		const val = Number(e.target.value);
-		if (isNaN(val)) setQuestionScore('');
+		if (isNaN(val) || val === 0) setQuestionScore('');
 		setQuestionScore(val);
 	};
 
 	const handleChangeWager = (e) => {
 		const val = Number(e.target.value);
-		if (isNaN(val)) setQuestionWager('');
+		if (isNaN(val) || val === 0) setQuestionWager(null);
 		setQuestionWager(val);
 	};
 
@@ -104,9 +104,7 @@ export default function TeamForm() {
 	const addTeam = useCallback(
 		(name) => {
 			const data = gameData?.dataFile?.data?.rounds;
-			const filtered = data.filter(
-				(rd) => rd.round?.toString().toLowerCase() !== 'tiebreaker',
-			);
+			const filtered = data.filter((rd) => rd.type !== 'tiebreaker');
 
 			if (!gameScore || !Array.isArray(gameScore)) return;
 			if (!name)
@@ -130,15 +128,17 @@ export default function TeamForm() {
 					active: true,
 					playerCount: null,
 					scores: filtered.map((rd) => {
-						if ((typeof rd.round).toLowerCase() === 'number') {
+						if (rd.type === 'wager') {
 							return {
-								round: rd.round,
+								type: rd.type,
+								round: rd.title,
 								scores: new Array(rd.questions.length).fill(null),
 								wagers: new Array(rd.questions.length).fill(null),
 							};
 						} else {
 							return {
-								round: rd.round,
+								type: rd.type,
+								round: rd.title,
 								scores: [],
 							};
 						}
@@ -167,19 +167,15 @@ export default function TeamForm() {
 			const newName = formData.get('team');
 			const res = addTeam(newName);
 			if (res.status === 'success') showMessage('info', res.message);
-			else showMessage('error', res.message);
-
+			else showMessage('error', res.message, 2000);
 			setTeamName('');
 		} else {
 			let data = {};
 			for (const [key, value] of formData) {
-				data[key] = value;
+				data[key] = isNaN(Number(value)) ? value : Number(value);
 			}
-			const allowedWagers = [1, 3, 5, 7];
 
-			console.log(data);
-			console.log(gameScore);
-			//see if the team exists
+			//see if the team exists, and add them if not
 			if (
 				!gameScore.some(
 					(team) =>
@@ -188,10 +184,18 @@ export default function TeamForm() {
 			)
 				addTeam(data.team);
 
+			const selectedRoundData = rounds[data.round];
+			if (!selectedRoundData)
+				return showMessage(
+					'error',
+					`Invalid round (${data.round}) specified`,
+					2000,
+				);
+
 			setGameScore((prev) => {
 				const newData = [...prev];
 				const round = Number(data.round);
-
+				console.log(selectedRoundData);
 				if (isNaN(round)) return;
 				newData.some((team) => {
 					//find the team
@@ -201,7 +205,6 @@ export default function TeamForm() {
 						//we've found the team, get the object representing their submission(s) for this round
 						//whatever happens here, we will return true and be done after processing this object
 						const teamRound = team.scores[round];
-
 						if (data.playerCount) {
 							const playerCount = Number(data.playerCount);
 							if (!isNaN(playerCount)) team.playerCount = playerCount;
@@ -209,7 +212,7 @@ export default function TeamForm() {
 
 						if (teamRound) {
 							//if we're in a regular round
-							if ((typeof teamRound.round).toLowerCase() === 'number') {
+							if (selectedRoundData.type === 'wager') {
 								//get the question number and score
 								const question = Number(data.question);
 								const score = Number(data.score);
@@ -218,23 +221,22 @@ export default function TeamForm() {
 									//make sure the wager hasn't alaredy been used - show a warning if so, but allow the submission
 									if (
 										teamRound.wagers.some(
-											(w, i) =>
-												w !== null &&
-												w === Number(data.wager) &&
-												i !== question,
+											(w, i) => w !== null && w === wager && i !== question,
 										)
 									) {
 										showMessage(
 											'warning',
 											`${team.name} has already used wager ${data.wager} this round`,
+											2000,
 										);
 									}
 
 									//ensure the wager is allowed
-									if (!allowedWagers.includes(Number(data.wager))) {
+									if (!selectedRoundData.wagers.includes(Number(data.wager))) {
 										showMessage(
 											'error',
-											`Invalid wager submitted - only ${allowedWagers.join(', ')} are allowed`,
+											`Invalid wager submitted - only ${selectedRoundData.wagers.join(', ')} are allowed`,
+											2000,
 										);
 									} else if (
 										isNaN(score) ||
@@ -244,6 +246,7 @@ export default function TeamForm() {
 										showMessage(
 											'error',
 											'Invalid score submitted - must be a non-negative integer',
+											2000,
 										);
 									else {
 										teamRound.scores[question] = score;
@@ -253,21 +256,17 @@ export default function TeamForm() {
 									showMessage(
 										'',
 										`Invalid question (${data.question}) selected`,
+										2000,
 									);
 							} else {
-								console.log(data);
 								const score = Number(data.score);
-								const minScore = teamRound.round === 'Final' ? -15 : 0;
-								const maxScore =
-									teamRound.round === 'Audio'
-										? 14
-										: teamRound.round === 'Final'
-											? 15
-											: 10;
+								const minScore = rounds[round].minScore || 0;
+								const maxScore = rounds[round].maxScore || 10;
 								if (isNaN(score))
 									showMessage(
 										'error',
 										`Invalid score submitted (${data.score})`,
+										2000,
 									);
 								else {
 									let valid = false;
@@ -275,11 +274,13 @@ export default function TeamForm() {
 										showMessage(
 											'warning',
 											`Score submitted (${data.score}) is below the normal minimum score for this round`,
+											2000,
 										);
 									else if (score > maxScore)
 										showMessage(
 											'warning',
 											`Score submitted (${data.score}) is above the normal maximum score for this round`,
+											2000,
 										);
 									else valid = true;
 
@@ -291,7 +292,8 @@ export default function TeamForm() {
 									];
 								}
 							}
-						} else showMessage('error', `Invalid round (${round}) selected`);
+						} else
+							showMessage('error', `Invalid round (${round}) selected`, 2000);
 						return true;
 					}
 				});
@@ -302,6 +304,7 @@ export default function TeamForm() {
 		setQuestionScore('');
 		setQuestionWager('');
 		setTeamName('');
+		setPlayerCount('');
 		setSubmitting(false);
 		teamNameRef.current.value = '';
 		teamNameRef.current.focus();
@@ -352,11 +355,11 @@ export default function TeamForm() {
 	const rounds = gameData?.dataFile?.data?.rounds;
 	const selectedRoundData = rounds[selectedRound];
 	const questionDisabled =
-		selectedRound.toString() === '-1' ||
-		isNaN(Number(selectedRoundData?.round));
+		!selectedRoundData || selectedRoundData.type !== 'wager';
+	const firstHandoutRound = rounds.findIndex((rd) => rd.type !== 'wager');
 
 	return (
-		<Container>
+		<div className="w-100 ps-4">
 			<form id="data-entry-form" onSubmit={handleSubmit}>
 				<Row sm={1} md={4} lg={4}>
 					<Col>
@@ -369,13 +372,13 @@ export default function TeamForm() {
 									onChange={handleRoundChange}
 									value={selectedRound}
 								>
-									<option value="-1">Pregame</option>
-									{gameData.dataFile.data.rounds.map((rd, i) => {
+									<option value="-1" key={-1}>
+										Pregame
+									</option>
+									{rounds.map((rd, i) => {
 										return (
 											<option key={i} value={i}>
-												{(typeof rd.round).toLowerCase() === 'number'
-													? 'Round ' + rd.round
-													: rd.round}
+												{rd.title}
 											</option>
 										);
 									})}
@@ -455,7 +458,7 @@ export default function TeamForm() {
 									''
 								)}
 
-								{selectedRound === 1 ? (
+								{selectedRound === firstHandoutRound ? (
 									<div className="labeled-input">
 										<div className="input-label">Player Count</div>
 										<input
@@ -466,9 +469,7 @@ export default function TeamForm() {
 											onChange={handleChangePlayerCount}
 										></input>
 									</div>
-								) : isNaN(Number(selectedRoundData?.round)) ? (
-									''
-								) : (
+								) : selectedRoundData?.type === 'wager' ? (
 									<div className="labeled-input">
 										<div className="input-label">Wager</div>
 										<input
@@ -479,6 +480,8 @@ export default function TeamForm() {
 											onChange={handleChangeWager}
 										></input>
 									</div>
+								) : (
+									''
 								)}
 								<input
 									type="submit"
@@ -493,6 +496,6 @@ export default function TeamForm() {
 					</Col>
 				</Row>
 			</form>
-		</Container>
+		</div>
 	);
 }

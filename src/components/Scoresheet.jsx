@@ -1,30 +1,36 @@
 import { useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import Container from 'react-bootstrap/Container';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
 import { GameDataContext } from '../contexts/GameDataContext';
 import { GameScoreContext } from '../contexts/GameScoreContext';
 import { MessageContext } from '../contexts/MessageContext';
 import { SelectionContext } from '../contexts/SelectionContext';
 import { AnnouncementsContext } from '../contexts/AnnouncementsContext';
+import { HandoutContext } from '../contexts/HandoutContext';
 import AnnouncementsModal from './AnnouncementsModal';
+import HandoutModal from './HandoutModal';
+import TeamInfoModal from './TeamInfoModal';
 
 import '../css/Scoresheet.css';
 import MenuBar from './Scoresheet/MenuBar';
 import TeamForm from './Scoresheet/TeamForm';
-import ScoreTable from './ScoreTable';
+import ScoreTable from './Scoresheet/ScoreTable';
+import InfoPanel from './Scoresheet/InfoPanel';
 
 export default function Scoresheet() {
 	const { gameData, setGameData } = useContext(GameDataContext);
 	const { gameScore, setGameScore } = useContext(GameScoreContext);
 	const { showMessage } = useContext(MessageContext);
-	const [selectedRound, setSelectedRound] = useState(null);
-	const [selectedQuestion, setSelectedQuestion] = useState(null);
+	const [selectedRound, setSelectedRound] = useState(-1);
+	const [selectedQuestion, setSelectedQuestion] = useState(-1);
 	const [selectedTeam, setSelectedTeam] = useState(null);
 
 	const setCurrentQuestion = (q) => {
-		if (selectedRound === null) return;
+		if (selectedRound === -1) return;
 		const selectedRoundData = gameData?.dataFile?.data?.rounds[selectedRound];
 		if (!selectedRoundData) return;
-		const questionDisabled =
-			selectedRound === -1 || isNaN(Number(selectedRoundData.round));
+		const questionDisabled = selectedRoundData.type !== 'wager';
 		if (questionDisabled) return;
 		const question = Number(q);
 		if (isNaN(question)) return;
@@ -42,21 +48,21 @@ export default function Scoresheet() {
 		if (!roundData) return;
 		if (round >= roundData.length) return;
 		const selectedRoundData = roundData[round];
-		const questionDisabled =
-			round === -1 || isNaN(Number(selectedRoundData.round));
+		const questionDisabled = round === -1 || selectedRoundData.type !== 'wager';
 		setSelectedRound(round);
 		setSelectedQuestion(questionDisabled ? -1 : 0);
 	};
 
-	const [showAnnouncementsModal, setShowAnnouncementsModal] = useState(false);
-	const handleCloseAnnouncementsModal = () => {
-		if (selectedRound === null && selectedQuestion === null) {
-			setSelectedRound(-1);
-			setSelectedQuestion(-1);
-		}
-		setShowAnnouncementsModal(false);
-	};
+	const [showAnnouncementsModal, setShowAnnouncementsModal] = useState(true);
+	const handleCloseAnnouncementsModal = () => setShowAnnouncementsModal(false);
 
+	const [showHandout, setShowHandout] = useState(false);
+	const showHandoutAnswers = () => setShowHandout(true);
+	const hideHandoutAnswers = () => setShowHandout(false);
+
+	const [showTeamInfo, setShowTeamInfo] = useState(false);
+	const hideTeamInfoModal = () => setShowTeamInfo(false);
+	const showTeamInfoModal = () => setShowTeamInfo(true);
 	const menuItems = useMemo(() => {
 		const closeGame = () => {
 			showMessage('info', 'Closing game...');
@@ -80,6 +86,9 @@ export default function Scoresheet() {
 			console.log(selectedRound, selectedQuestion);
 			console.log(gameData.dataFile.data);
 		};
+
+		const team = gameScore.find((t) => t.id === selectedTeam);
+
 		return [
 			{
 				title: 'Game',
@@ -92,18 +101,6 @@ export default function Scoresheet() {
 							key: 'A',
 						},
 						fn: () => setShowAnnouncementsModal(true),
-						disabled: false,
-					},
-					{
-						title: 'Add Team...',
-						shortcut: {
-							altKey: false,
-							ctrlKey: true,
-							shiftKey: true,
-							key: '+',
-							keyDisplay: '+',
-						},
-						fn: handleMenuClick,
 						disabled: false,
 					},
 					{
@@ -139,16 +136,45 @@ export default function Scoresheet() {
 							ctrlKey: true,
 							key: '/',
 						},
-						fn: handleMenuClick,
+						fn: showTeamInfoModal,
 					},
 					{
-						title: 'Mark team inactive',
+						title: team
+							? `Set team ${team.active ? 'inactive' : 'active'}`
+							: 'Set team inactive',
 						shortcut: {
 							altKey: false,
 							ctrlKey: true,
 							key: '-',
 						},
-						fn: handleMenuClick,
+						fn: team
+							? team.active
+								? () => {
+										setGameScore((prev) => {
+											const newScore = [...prev];
+											newScore.some((tm) => {
+												if (tm.id === selectedTeam) {
+													tm.active = false;
+													return true;
+												}
+											});
+											return newScore;
+										});
+									}
+								: () => {
+										setGameScore((prev) => {
+											const newScore = [...prev];
+											newScore.some((tm) => {
+												if (tm.id === selectedTeam) {
+													tm.active = true;
+													return true;
+												}
+											});
+											return newScore;
+										});
+									}
+							: () => {},
+						disabled: () => !selectedTeam,
 					},
 					{
 						title: 'Delete team',
@@ -213,7 +239,7 @@ export default function Scoresheet() {
 							const newRound = selectedRound - 1;
 							if (newRound < -1 || newRound >= data.length) return;
 							setSelectedRound(newRound);
-							if (newRound !== -1 && !isNaN(Number(data[newRound].round)))
+							if (newRound !== -1 && data[newRound]?.type === 'wager')
 								setSelectedQuestion(0);
 							else setSelectedQuestion(-1);
 						},
@@ -233,7 +259,7 @@ export default function Scoresheet() {
 							const newRound = selectedRound + 1;
 							if (newRound >= data.length) return;
 							setSelectedRound(newRound);
-							if (!isNaN(Number(data[newRound].round))) setSelectedQuestion(0);
+							if (data[newRound]?.type === 'wager') setSelectedQuestion(0);
 							else setSelectedQuestion(-1);
 						},
 						disabled: () => {
@@ -245,7 +271,16 @@ export default function Scoresheet() {
 				disabled: false,
 			},
 		];
-	}, [showMessage, setGameData, gameData, selectedRound, selectedQuestion]);
+	}, [
+		showMessage,
+		setGameData,
+		gameData,
+		gameScore,
+		selectedRound,
+		selectedTeam,
+		selectedQuestion,
+		setGameScore,
+	]);
 
 	const handleKey = useCallback(
 		(e) => {
@@ -305,6 +340,12 @@ export default function Scoresheet() {
 			const existingGameDataItem = localStorage.getItem(
 				`bp-game-${existingGame.id}`,
 			);
+			setGameData((prev) => {
+				return {
+					...prev,
+					id: existingGame.id,
+				};
+			});
 			//if we found the LS item...
 			if (existingGameDataItem) {
 				//try to parse the data
@@ -348,33 +389,58 @@ export default function Scoresheet() {
 			});
 			localStorage.setItem('bp-game-history', JSON.stringify(savedGames));
 			localStorage.setItem(`bp-game-${id}`, JSON.stringify(gameScore));
+			setGameData((prev) => {
+				return {
+					...prev,
+					id,
+				};
+			});
 		}
 	}, []);
+
 	return (
-		<div id="scoresheet" className="container">
-			<AnnouncementsContext.Provider value={setShowAnnouncementsModal}>
-				<SelectionContext.Provider
-					value={{
-						selectedRound,
-						selectedQuestion,
-						setCurrentRound,
-						setCurrentQuestion,
-						selectedTeam,
-						setSelectedTeam,
-					}}
-				>
-					<AnnouncementsModal
-						onHide={handleCloseAnnouncementsModal}
-						show={
-							showAnnouncementsModal ||
-							(selectedRound === null && selectedQuestion === null)
-						}
-					/>
-					<MenuBar items={menuItems} />
-					{selectedRound !== null ? <TeamForm /> : ''}
-					<ScoreTable />
-				</SelectionContext.Provider>
-			</AnnouncementsContext.Provider>
+		<div id="scoresheet" className="container" onKeyDown={handleKey}>
+			<HandoutContext.Provider value={showHandoutAnswers}>
+				<AnnouncementsContext.Provider value={setShowAnnouncementsModal}>
+					<SelectionContext.Provider
+						value={{
+							selectedRound,
+							selectedQuestion,
+							setCurrentRound,
+							setCurrentQuestion,
+							selectedTeam,
+							setSelectedTeam,
+						}}
+					>
+						<AnnouncementsModal
+							onHide={handleCloseAnnouncementsModal}
+							show={showAnnouncementsModal}
+						/>
+						<HandoutModal
+							id={'handout-modal'}
+							onHide={hideHandoutAnswers}
+							show={showHandout}
+						/>
+						<TeamInfoModal
+							id={'team-info-modal'}
+							onHide={hideTeamInfoModal}
+							show={showTeamInfo}
+						/>
+						<MenuBar items={menuItems} />
+						{selectedRound !== null ? <TeamForm /> : ''}
+						<div className="f-1 d-flex flex-column px-4">
+							<Row sm={1} md={2} className="f-1">
+								<Col sm={12} md={8}>
+									<ScoreTable openTeamInfo={showTeamInfoModal} />
+								</Col>
+								<Col sm={12} md={4} id="info-panel">
+									<InfoPanel />
+								</Col>
+							</Row>
+						</div>
+					</SelectionContext.Provider>
+				</AnnouncementsContext.Provider>
+			</HandoutContext.Provider>
 		</div>
 	);
 }

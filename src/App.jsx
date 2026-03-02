@@ -69,8 +69,22 @@ function App() {
 		});
 	};
 
+	const setGameDataField = (field) => {
+		return (e) => {
+			setGameData((prev) => {
+				const newData = {
+					...prev,
+				};
+				newData[field] = e.target.value;
+				return newData;
+			});
+		};
+	};
+
 	return (
-		<GameDataContext.Provider value={{ gameData, setGameData }}>
+		<GameDataContext.Provider
+			value={{ gameData, setGameData, setGameDataField }}
+		>
 			<GameScoreContext.Provider value={{ gameScore, setGameScore }}>
 				<MessageContext.Provider value={{ message, showMessage }}>
 					<GameDataErrorModal

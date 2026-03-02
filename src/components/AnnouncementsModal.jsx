@@ -28,7 +28,7 @@ export default function GameDataErrorModal(props) {
 			centered
 		>
 			<Modal.Header closeButton>
-				<Modal.Title id="error-modal-title">
+				<Modal.Title id="announcements-modal-title">
 					{`${postGame ? 'Postgame announcements' : 'Announcements and rules'}`}
 				</Modal.Title>
 			</Modal.Header>

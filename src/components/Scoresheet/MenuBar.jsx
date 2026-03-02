@@ -13,7 +13,7 @@ export default function MenuBar(props) {
 
 	return (
 		<Navbar id="menu-bar" expand="lg" className="">
-			<Container>
+			<div className="w-100 ps-4">
 				<Navbar.Toggle aria-controls="basic-navbar-nav" />
 				<Navbar.Collapse id="basic-navbar-nav">
 					<Nav className="me-auto">
@@ -84,7 +84,7 @@ export default function MenuBar(props) {
 						})}
 					</Nav>
 				</Navbar.Collapse>
-			</Container>
+			</div>
 		</Navbar>
 	);
 }

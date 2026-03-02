@@ -3,10 +3,17 @@
 	--bg-color: #242424;
 	--dark-blue: #17113d;
 	--light-blue: #28a7d5;
+	--msg-info-b: #005416;
 	--msg-info: #a7ff8f;
+	--msg-warning-b: #949400;
+	--msg-warning: yellow;
+	--msg-error-b: #ff7070;
 	--msg-error: #800;
 	--light-gray: #ddd;
 	--dark-gray: #333;
+	--team-inactive: #aaa;
+	--score-col: #f4b084;
+	--rank-col: #a9d08e;
 
 	font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
 	line-height: 1.5;
@@ -32,7 +39,8 @@ a:hover {
 
 html,
 body {
-	overflow-y: hidden;
+	overflow-y: auto;
+	overflow-x: hidden;
 	height: 100%;
 	background-color: var(--bg-color);
 	color: var(--text-color);
@@ -51,6 +59,13 @@ body {
 h1 {
 	font-size: 3.2em;
 	line-height: 1.1;
+}
+
+div {
+	caret-color: transparent;
+}
+input {
+	caret-color: var(--light-blue);
 }
 
 button {

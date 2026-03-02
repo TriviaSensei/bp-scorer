@@ -10,9 +10,11 @@ import '../css/GameSetup.css';
 import { GameDataContext } from '../contexts/GameDataContext';
 import LabeledInput from './LabeledInput';
 import { MessageContext } from '../contexts/MessageContext';
+import rounds from '../assets/rounds';
 
 export default function GameSetup() {
-	const { gameData, setGameData } = useContext(GameDataContext);
+	const { gameData, setGameData, setGameDataField } =
+		useContext(GameDataContext);
 	const { showMessage } = useContext(MessageContext);
 	const gameFileRef = useRef();
 	const tz = moment.tz.guess();
@@ -26,11 +28,11 @@ export default function GameSetup() {
 
 		const toReturn = {
 			announcements: [],
-			rounds: [],
+			rounds: [...rounds],
 			postAnnouncements: [],
 		};
 
-		let currentRound = 0;
+		let currentRound = -1;
 
 		output.forEach((row, i) => {
 			//get rid of the leading blank cells
@@ -44,28 +46,11 @@ export default function GameSetup() {
 			//see if this row is introducing a regular round
 			const m = firstCell.match(/round [1-5]/g);
 			if (m) {
-				//if it is, see if it's also introducing an intermediate round in the next cell, which we should push first
-				['Picture', 'Handout'].some((rd) => {
-					if (row[1]?.toString().toLowerCase().indexOf(rd.toLowerCase()) >= 0) {
-						toReturn.rounds.push({
-							round: `${rd}`,
-						});
-						return true;
-					}
-				});
-				const rNo = Number(m[0].split(' ')[1]);
-				currentRound = rNo;
-				if (!currentRound) {
-					errors.push({
-						row: i + 1,
-						message: 'Invalid round indicated in cell 1',
-					});
-					return;
-				}
-				toReturn.rounds.push({
-					round: rNo,
-					questions: [],
-				});
+				const roundNo = Number(m[0].split(' ')[1]);
+				currentRound = rounds.findIndex(
+					(rd) => rd.title === `Round ${roundNo}`,
+				);
+				if (currentRound >= 0) rounds[currentRound].questions = [];
 			}
 			//introducing the audio round?
 			else if (
@@ -77,63 +62,56 @@ export default function GameSetup() {
 					(cell) => cell?.toString().toLowerCase().indexOf('artist') >= 0,
 				)
 			) {
-				toReturn.rounds.push({
-					round: 'Audio',
-					questions: [],
-				});
-				currentRound = 'audio';
+				currentRound = rounds.findIndex((rd) => rd.title === 'Audio');
+				rounds[currentRound].questions = [];
 			}
 			//introducing the 3-part question?
 			else if (
 				firstCell.indexOf('three') >= 0 &&
 				firstCell.indexOf('part') >= 0
 			) {
-				toReturn.rounds.push({
-					round: '3-Part Q',
-					question: row[1],
-					answers: row[2].split('\n'),
-				});
+				const roundNo = rounds.findIndex((rd) => rd.type === '3PQ');
+				if (roundNo >= 0) {
+					toReturn.rounds[roundNo].text = row[1];
+					toReturn.rounds[roundNo].answer = row[2].split('\n');
+				}
 			}
 			//introducing the final?
 			else if (firstCell.indexOf('final') >= 0) {
-				toReturn.rounds.push({
-					round: 'Final',
-					category: row[1],
-					question: row[2],
-					answer: row[3],
-				});
-				currentRound = 'final';
+				const roundNo = rounds.findIndex((rd) => rd.type === 'final');
+				toReturn.rounds[roundNo].category = row[1];
+				toReturn.rounds[roundNo].text = row[2];
+				toReturn.rounds[roundNo].answer = row[3];
 			}
 			//introducing the tiebreaker?
 			else if (firstCell.indexOf('tiebreaker') >= 0) {
-				toReturn.rounds.push({
-					round: 'Tiebreaker',
-					question: row[2],
-					answer: row[3],
-				});
+				const roundNo = rounds.findIndex((rd) => rd.type === 'tiebreaker');
+				toReturn.rounds[roundNo].text = row[2];
+				toReturn.rounds[roundNo].answer = row[3];
 				currentRound = 'tiebreaker';
-			} else if (currentRound === 0) {
+			} else if (currentRound === -1) {
 				if (firstCell.indexOf('announcements') >= 0 && row[1])
 					toReturn.announcements.push(row[1]);
 				else toReturn.announcements.push(row[0]);
 			}
 			//post announcements?
 			else if (firstCell.indexOf('announcements') >= 0 && row[1]) {
-				currentRound = -1;
+				currentRound = -2;
 				toReturn.postAnnouncements.push(row[1]);
-			} else if (currentRound === -1) {
+			} else if (currentRound === -2) {
 				toReturn.postAnnouncements.push(row[0]);
 			}
-			//regular question
+			//regular question or audio round
 			else if ((typeof row[0]).toLowerCase() === 'number') {
-				if (currentRound === 'audio') {
+				const cr = toReturn.rounds[currentRound];
+				if (cr.type === 'audio') {
 					if (row.length < 3 || !row[0] || !row[1] || !row[2])
 						return errors.push({
 							row: i + 1,
 							message: `Invalid song - title, artist, or number missing`,
 						});
-					toReturn.rounds[toReturn.rounds.length - 1].questions.push({
-						number: row[0],
+					if (!cr.questions) cr.questions = [];
+					cr.questions.push({
 						title: row[1],
 						artist: row[2],
 					});
@@ -143,30 +121,49 @@ export default function GameSetup() {
 							row: i + 1,
 							message: `Invalid question - number, category, text, or answer missing`,
 						});
-					toReturn.rounds[toReturn.rounds.length - 1].questions.push({
+					if (
+						isNaN(currentRound) ||
+						currentRound < 0 ||
+						currentRound > toReturn.rounds.length - 1
+					) {
+						return errors.push({
+							row: i + 1,
+							message: `Invalid question - not within a round`,
+						});
+					}
+					if (cr.type !== 'wager')
+						return errors.push({
+							row: i + 1,
+							message: `Invalid question - not within wager round`,
+						});
+					if (!cr.questions) {
+						cr.questions = [];
+					}
+					cr.questions.push({
 						number: row[0],
 						category: row[1],
 						text: row[2],
 						answer: row[3],
-						bonusText: row[4],
+						bonus: row[4],
 						bonusAnswer: row[5],
 					});
 				}
+			} else if (
+				firstCell.indexOf('theme') >= 0 &&
+				toReturn.rounds[currentRound]?.type === 'audio'
+			) {
+				toReturn.rounds[currentRound].theme = row[1];
 			}
 		});
 
-		//verify each round has 4 questions and the music round has 6 songs listed
+		//verify each round has the expected number of questions
 		toReturn.rounds.forEach((rd) => {
-			if ((typeof rd.round).toLowerCase() === 'number') {
-				if (rd.questions.length !== 4)
+			if (rd.type === 'wager') {
+				if (rd.questions.length !== rd.wagers.length)
 					errors.push({
-						message: `Round ${rd.round} has only ${rd.questions.length} questions (expecting 4)`,
+						message: `${rd.title} has ${rd.questions.length} questions (expecting ${rd.wagers.length})`,
 					});
-			} else if (rd.round.toLowerCase() === 'audio')
-				if (rd.questions.length !== 6)
-					errors.push({
-						message: `Audio round has only ${rd.questions.length} questions (expecting 6)`,
-					});
+			}
 		});
 
 		if (errors.length === 0)
@@ -200,7 +197,8 @@ export default function GameSetup() {
 					...prev,
 					answerFile: {
 						fileName: file.name,
-						data: file,
+						fileData: file,
+						data: URL.createObjectURL(file),
 					},
 				};
 			});
@@ -217,25 +215,13 @@ export default function GameSetup() {
 					...prev,
 					audioFile: {
 						fileName: file.name,
-						data: file,
+						fileData: file,
+						data: URL.createObjectURL(file),
 					},
 				};
 			});
 			e.target.value = null;
 		} else return showMessage('error', 'MP3 file required for handout answers');
-	};
-
-	const setGameDataField = (field) => {
-		return (e) => {
-			setGameData((prev) => {
-				const newData = {
-					...prev,
-				};
-				console.log(e.target.value);
-				newData[field] = e.target.value;
-				return newData;
-			});
-		};
 	};
 
 	return (
