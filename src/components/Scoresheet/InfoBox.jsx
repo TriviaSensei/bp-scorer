@@ -11,7 +11,7 @@ export default function InfoBox(props) {
 	}, [hidden, props.hideText, props.hiddenText, props.children]);
 
 	return (
-		<div className="info-box">
+		<div className={`info-box ${props.className || ''}`}>
 			<div className="title">{props.title}</div>
 			<div
 				className="info-text"

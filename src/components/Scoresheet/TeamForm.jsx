@@ -1,4 +1,4 @@
-import { useContext, useState, useCallback, useRef } from 'react';
+import { useContext, useState, useCallback, useRef, useMemo } from 'react';
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
@@ -8,6 +8,7 @@ import { GameDataContext } from '../../contexts/GameDataContext';
 import { SelectionContext } from '../../contexts/SelectionContext';
 import { GameScoreContext } from '../../contexts/GameScoreContext';
 import { MessageContext } from '../../contexts/MessageContext';
+import { RevokeTokenRequestFilterSensitiveLog } from '@aws-sdk/client-cognito-identity-provider';
 export default function TeamForm() {
 	const {
 		selectedRound,
@@ -25,6 +26,10 @@ export default function TeamForm() {
 	const [teamName, setTeamName] = useState('');
 	const [suggestions, setSuggestions] = useState([]);
 	const [selectedSuggestion, setSelectedSuggestion] = useState(null);
+
+	const formRef = useRef();
+	const selectRef = useRef();
+	const teamNameRef = useRef();
 
 	const handleChangeScore = (e) => {
 		const val = Number(e.target.value);
@@ -66,7 +71,6 @@ export default function TeamForm() {
 	};
 	const handleUnhoverSuggestion = () => setSelectedSuggestion(null);
 
-	const teamNameRef = useRef();
 	const handleKey = useCallback(
 		(e) => {
 			if (suggestions.length === 0) return;
@@ -155,26 +159,43 @@ export default function TeamForm() {
 		[gameData, gameScore, setGameScore],
 	);
 
+	const getFormData = (form) => {
+		const formData = new FormData(form);
+
+		let data = {};
+		for (const [key, value] of formData) {
+			data[key] = isNaN(Number(value)) ? value : Number(value);
+		}
+		return data;
+	};
+
 	const handleSubmit = (e) => {
+		//if this is getting triggered from the wager select
+		if (e.target === selectRef.current) {
+			//see which key is triggering it - if it's not the enter key, then don't submit the form
+			const key = e.key?.toLowerCase();
+			if (key && key !== 'enter' && key !== 'return') return;
+		}
 		e.preventDefault();
+
 		if (submitting) return;
 		setSubmitting(true);
-		const formData = new FormData(e.target);
+		const data = getFormData(formRef.current);
 		const rounds = gameData?.dataFile?.data?.rounds;
 		if (!rounds) return;
 		//for round -1 (pregame), we're just adding the team if necessary
-		if (selectedRound === -1) {
-			const newName = formData.get('team');
+		if (!data.team) showMessage('error', 'You must specify a team name');
+		else if (selectedRound === -1) {
+			const newName = data.team;
 			const res = addTeam(newName);
-			if (res.status === 'success') showMessage('info', res.message);
-			else showMessage('error', res.message, 2000);
-			setTeamName('');
+			if (res.status === 'success') {
+				showMessage('info', res.message);
+				setQuestionScore('');
+				setQuestionWager('');
+				setTeamName('');
+				setPlayerCount('');
+			} else showMessage('error', res.message, 2000);
 		} else {
-			let data = {};
-			for (const [key, value] of formData) {
-				data[key] = isNaN(Number(value)) ? value : Number(value);
-			}
-
 			//see if the team exists, and add them if not
 			if (
 				!gameScore.some(
@@ -185,129 +206,161 @@ export default function TeamForm() {
 				addTeam(data.team);
 
 			const selectedRoundData = rounds[data.round];
-			if (!selectedRoundData)
-				return showMessage(
-					'error',
-					`Invalid round (${data.round}) specified`,
-					2000,
-				);
+			if (selectedRoundData) {
+				setGameScore((prev) => {
+					const newData = [...prev];
+					const round = Number(data.round);
+					if (isNaN(round)) return;
+					newData.some((team) => {
+						//find the team
+						if (
+							team.name.trim().toLowerCase() === data.team.trim().toLowerCase()
+						) {
+							//we've found the team, get the object representing their submission(s) for this round
+							//whatever happens here, we will return true and be done after processing this object
+							const teamRound = team.scores[round];
+							if (data.playerCount) {
+								const playerCount = Number(data.playerCount);
+								if (!isNaN(playerCount)) team.playerCount = playerCount;
+							}
 
-			setGameScore((prev) => {
-				const newData = [...prev];
-				const round = Number(data.round);
-				console.log(selectedRoundData);
-				if (isNaN(round)) return;
-				newData.some((team) => {
-					//find the team
-					if (
-						team.name.trim().toLowerCase() === data.team.trim().toLowerCase()
-					) {
-						//we've found the team, get the object representing their submission(s) for this round
-						//whatever happens here, we will return true and be done after processing this object
-						const teamRound = team.scores[round];
-						if (data.playerCount) {
-							const playerCount = Number(data.playerCount);
-							if (!isNaN(playerCount)) team.playerCount = playerCount;
-						}
+							if (teamRound) {
+								//if we're in a regular round
+								if (selectedRoundData.type === 'wager') {
+									//get the question number and score
+									const question = Number(data.question);
+									const score = Number(data.score);
+									const wager = Number(data.wager);
+									if (!isNaN(question) && question <= teamRound.scores.length) {
+										//make sure the wager hasn't alaredy been used - show a warning if so, but allow the submission
+										if (
+											teamRound.wagers.some(
+												(w, i) => w !== null && w === wager && i !== question,
+											)
+										) {
+											showMessage(
+												'warning',
+												`${team.name} has already used wager ${data.wager} this round`,
+												2000,
+											);
+										}
 
-						if (teamRound) {
-							//if we're in a regular round
-							if (selectedRoundData.type === 'wager') {
-								//get the question number and score
-								const question = Number(data.question);
-								const score = Number(data.score);
-								const wager = Number(data.wager);
-								if (!isNaN(question) && question <= teamRound.scores.length) {
-									//make sure the wager hasn't alaredy been used - show a warning if so, but allow the submission
-									if (
-										teamRound.wagers.some(
-											(w, i) => w !== null && w === wager && i !== question,
+										//ensure the wager is allowed
+										if (
+											!selectedRoundData.wagers.includes(Number(data.wager))
+										) {
+											showMessage(
+												'error',
+												`Invalid wager submitted - only ${selectedRoundData.wagers.join(', ')} are allowed`,
+												2000,
+											);
+										} else if (
+											isNaN(score) ||
+											score < 0 ||
+											score !== Math.floor(score)
 										)
-									) {
+											showMessage(
+												'error',
+												'Invalid score submitted - must be a non-negative integer',
+												2000,
+											);
+										else {
+											teamRound.scores[question] = score;
+											teamRound.wagers[question] = wager;
+										}
+									} else
 										showMessage(
-											'warning',
-											`${team.name} has already used wager ${data.wager} this round`,
+											'',
+											`Invalid question (${data.question}) selected`,
 											2000,
 										);
-									}
-
-									//ensure the wager is allowed
-									if (!selectedRoundData.wagers.includes(Number(data.wager))) {
+								} else {
+									const score = Number(data.score);
+									const minScore = rounds[round].minScore || 0;
+									const maxScore = rounds[round].maxScore || 10;
+									if (isNaN(score))
 										showMessage(
 											'error',
-											`Invalid wager submitted - only ${selectedRoundData.wagers.join(', ')} are allowed`,
-											2000,
-										);
-									} else if (
-										isNaN(score) ||
-										score < 0 ||
-										score !== Math.floor(score)
-									)
-										showMessage(
-											'error',
-											'Invalid score submitted - must be a non-negative integer',
+											`Invalid score submitted (${data.score})`,
 											2000,
 										);
 									else {
-										teamRound.scores[question] = score;
-										teamRound.wagers[question] = wager;
+										let valid = false;
+										if (score < minScore)
+											showMessage(
+												'warning',
+												`Score submitted (${data.score}) is below the normal minimum score for this round`,
+												2000,
+											);
+										else if (score > maxScore)
+											showMessage(
+												'warning',
+												`Score submitted (${data.score}) is above the normal maximum score for this round`,
+												2000,
+											);
+										else valid = true;
+
+										teamRound.scores = [
+											{
+												score: score,
+												valid,
+											},
+										];
 									}
-								} else
-									showMessage(
-										'',
-										`Invalid question (${data.question}) selected`,
-										2000,
-									);
-							} else {
-								const score = Number(data.score);
-								const minScore = rounds[round].minScore || 0;
-								const maxScore = rounds[round].maxScore || 10;
-								if (isNaN(score))
-									showMessage(
-										'error',
-										`Invalid score submitted (${data.score})`,
-										2000,
-									);
-								else {
-									let valid = false;
-									if (score < minScore)
-										showMessage(
-											'warning',
-											`Score submitted (${data.score}) is below the normal minimum score for this round`,
-											2000,
-										);
-									else if (score > maxScore)
-										showMessage(
-											'warning',
-											`Score submitted (${data.score}) is above the normal maximum score for this round`,
-											2000,
-										);
-									else valid = true;
-
-									teamRound.scores = [
-										{
-											score: score,
-											valid,
-										},
-									];
 								}
-							}
-						} else
-							showMessage('error', `Invalid round (${round}) selected`, 2000);
-						return true;
-					}
-				});
+							} else
+								showMessage('error', `Invalid round (${round}) selected`, 2000);
+							return true;
+						}
+					});
 
-				return newData;
-			});
+					return newData;
+				});
+				setQuestionScore('');
+				setQuestionWager('');
+				setTeamName('');
+				setPlayerCount('');
+			} else
+				showMessage('error', `Invalid round (${data.round}) specified`, 2000);
 		}
-		setQuestionScore('');
-		setQuestionWager('');
-		setTeamName('');
-		setPlayerCount('');
+
 		setSubmitting(false);
 		teamNameRef.current.value = '';
 		teamNameRef.current.focus();
+	};
+
+	const handleDeleteResult = (e) => {
+		e.preventDefault();
+		if (submitting) return;
+		setSubmitting(true);
+		const data = getFormData(formRef.current);
+		const rounds = gameData?.dataFile?.data?.rounds;
+		if (!rounds) {
+			setSubmitting(false);
+			return;
+		}
+		const selectedRoundData = rounds[data.round];
+		if (!selectedRoundData) {
+			setSubmitting(false);
+			return;
+		}
+		setGameScore((prev) => {
+			const newScore = [...prev];
+			newScore.some((team) => {
+				if (team.name.trim().toLowerCase() === teamName.trim().toLowerCase()) {
+					const roundData = team.scores[data.round];
+					if (selectedRoundData.type === 'wager') {
+						roundData.scores[data.question] = null;
+						roundData.wagers[data.question] = null;
+					} else {
+						roundData.scores = [];
+					}
+					return true;
+				}
+			});
+			return newScore;
+		});
+		setSubmitting(false);
 	};
 
 	const handleTeamName = useCallback(
@@ -358,9 +411,17 @@ export default function TeamForm() {
 		!selectedRoundData || selectedRoundData.type !== 'wager';
 	const firstHandoutRound = rounds.findIndex((rd) => rd.type !== 'wager');
 
+	const canDelete = useMemo(() => {
+		if (selectedRound < 0 || teamName.trim() === '' || submitting) return false;
+		const selectedRoundData = rounds[selectedRound];
+		if (selectedRoundData.type === 'wager')
+			return selectedQuestion < selectedRoundData.questions.length;
+		else return true;
+	}, [rounds, submitting, selectedQuestion, selectedRound, teamName]);
+
 	return (
 		<div className="w-100 ps-4">
-			<form id="data-entry-form" onSubmit={handleSubmit}>
+			<form id="data-entry-form" onSubmit={handleSubmit} ref={formRef}>
 				<Row sm={1} md={4} lg={4}>
 					<Col>
 						<div className="d-flex flex-row">
@@ -472,23 +533,48 @@ export default function TeamForm() {
 								) : selectedRoundData?.type === 'wager' ? (
 									<div className="labeled-input">
 										<div className="input-label">Wager</div>
-										<input
+										<select
+											name="wager"
+											id="wager-select"
+											value={questionWager}
+											onChange={handleChangeWager}
+											onKeyDown={handleSubmit}
+											ref={selectRef}
+										>
+											<option value="">--</option>
+											{selectedRoundData.wagers.map((w, i) => {
+												return (
+													<option value={w} key={i}>
+														{w}
+													</option>
+												);
+											})}
+										</select>
+										{/* <input
 											type="number"
 											min="1"
 											name="wager"
 											value={questionWager}
 											onChange={handleChangeWager}
-										></input>
+										></input> */}
 									</div>
 								) : (
 									''
 								)}
 								<input
 									type="submit"
-									className="btn btn-primary ms-3"
+									className="btn btn-primary mx-3"
 									disabled={submitting}
 									value={selectedRound === -1 ? 'Add Team' : 'Submit'}
 								></input>
+								<button
+									role="button"
+									className="btn btn-warning"
+									disabled={!canDelete}
+									onClick={handleDeleteResult}
+								>
+									Delete result
+								</button>
 							</div>
 						) : (
 							''

@@ -1,0 +1,36 @@
+@keyframes blink {
+	0% {
+		color: var(--light-gray);
+		background-color: red;
+	}
+	50% {
+		background-color: var(--light-gray);
+	}
+}
+
+.timer-container {
+	display: flex;
+	flex-direction: row;
+	margin-top: 2rem;
+	width: 100%;
+	align-items: center;
+	.timer {
+		font-weight: bold;
+		font-size: 3em;
+		color: black;
+		text-align: center;
+		&.low-time {
+			color: red;
+		}
+		&.time-up {
+			animation-name: blink;
+			animation-duration: 2s;
+			animation-iteration-count: infinite;
+			transition: color 0 background-color 0;
+		}
+	}
+
+	.button-label {
+		font-size: 0.8em;
+	}
+}

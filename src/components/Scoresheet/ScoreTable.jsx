@@ -20,6 +20,7 @@ export default function ScoreTable({ openTeamInfo }) {
 	const ulcRef = useRef();
 	const [elements, ref] = useArrayRef();
 
+	//scroll to the proper round when a new round is selected
 	useEffect(() => {
 		if (selectedRound < 0 || selectedRound > elements.length - 1) return;
 		const el = elements[selectedRound];
@@ -31,7 +32,7 @@ export default function ScoreTable({ openTeamInfo }) {
 		const leftPos = leftColRect.left + leftColRect.width;
 		const diff = elRect.left - leftPos;
 		divRef.current.scrollLeft += diff;
-	}, [selectedRound, elements]);
+	}, [selectedRound]);
 
 	const data = gameData?.dataFile?.data?.rounds;
 

@@ -8,8 +8,12 @@ import { MessageContext } from '../contexts/MessageContext';
 import { SelectionContext } from '../contexts/SelectionContext';
 import { AnnouncementsContext } from '../contexts/AnnouncementsContext';
 import { HandoutContext } from '../contexts/HandoutContext';
+import { TimerContext } from '../contexts/TimerContext';
+import { ScoreModalContext } from '../contexts/ScoreModalContext';
+import { HideAnswersContext } from '../contexts/HideAnswersContext';
 import AnnouncementsModal from './AnnouncementsModal';
 import HandoutModal from './HandoutModal';
+import ScoreModal from './ScoreModal';
 import TeamInfoModal from './TeamInfoModal';
 
 import '../css/Scoresheet.css';
@@ -17,11 +21,92 @@ import MenuBar from './Scoresheet/MenuBar';
 import TeamForm from './Scoresheet/TeamForm';
 import ScoreTable from './Scoresheet/ScoreTable';
 import InfoPanel from './Scoresheet/InfoPanel';
+import DeleteTeamModal from './DeleteTeamModal';
+import { TagResourceCommand } from '@aws-sdk/client-cognito-identity-provider';
 
 export default function Scoresheet() {
 	const { gameData, setGameData } = useContext(GameDataContext);
 	const { gameScore, setGameScore } = useContext(GameScoreContext);
 	const { showMessage } = useContext(MessageContext);
+	const [timerState, setTimerState] = useState({
+		defaultValue: 0, //default value of the timer (initial start value). user cannot modify this
+		startValue: 0, //what the timer starts at - user is able to modify this
+		lastValue: 0, //the time left, in milliseconds, when the timer last last started
+		startTime: null, //timestamp when timer started
+		timeLeft: 0, //current time left, in seconds, used to update the actual display
+	});
+
+	const toggleTimer = useCallback(() => {
+		const startTimer = () => {
+			if (timerState.startTime) return;
+			setTimerState((prev) => {
+				return {
+					...prev,
+					startTime: Date.now(),
+				};
+			});
+		};
+		const stopTimer = () => {
+			if (!timerState.startTime) return;
+			setTimerState((prev) => {
+				return {
+					...prev,
+					lastValue: prev.lastValue - (Date.now() - prev.startTime),
+					startTime: null,
+				};
+			});
+		};
+		if (timerState.startTime) stopTimer();
+		else startTimer();
+	}, [timerState.startTime]);
+
+	const resetTimer = useCallback(() => {
+		//can't reset while timer is running
+		if (timerState.startTime) return;
+		setTimerState((prev) => {
+			return {
+				...prev,
+				lastValue: prev.startValue,
+				startTime: null,
+				timeLeft: Math.floor(prev.startValue / 1000),
+			};
+		});
+	}, [timerState.startTime]);
+
+	useEffect(() => {
+		let timeout, interval;
+		const updateTimer = () => {
+			if (!timerState.startTime) return;
+			const elapsed = Date.now() - timerState.startTime;
+			const timeLeft = Math.max(
+				0,
+				Math.floor((timerState.lastValue - elapsed) / 1000),
+			);
+			setTimerState((prev) => {
+				return {
+					...prev,
+					timeLeft,
+					startTime: timeLeft === 0 ? null : prev.startTime,
+					lastValue: timeLeft === 0 ? 0 : prev.lastValue,
+				};
+			});
+		};
+		if (timerState.startTime) {
+			const delay = timerState.lastValue % 1000;
+			timeout = setTimeout(() => {
+				updateTimer();
+				interval = setInterval(updateTimer, 1000);
+			}, delay + 1);
+		} else {
+			if (timeout) clearTimeout(timeout);
+			if (interval) clearInterval(interval);
+		}
+		return () => {
+			if (timeout) clearTimeout(timeout);
+			if (interval) clearInterval(interval);
+		};
+	}, [timerState.startTime, timerState.lastValue]);
+
 	const [selectedRound, setSelectedRound] = useState(-1);
 	const [selectedQuestion, setSelectedQuestion] = useState(-1);
 	const [selectedTeam, setSelectedTeam] = useState(null);
@@ -63,7 +148,26 @@ export default function Scoresheet() {
 	const [showTeamInfo, setShowTeamInfo] = useState(false);
 	const hideTeamInfoModal = () => setShowTeamInfo(false);
 	const showTeamInfoModal = () => setShowTeamInfo(true);
+
+	const [showDeleteTeam, setShowDeleteTeam] = useState(false);
+	const promptDeleteTeam = () => setShowDeleteTeam(true);
+	const hideDeleteTeam = () => setShowDeleteTeam(false);
+
+	const [showScore, setShowScore] = useState(false);
+	const hideScoreModal = () => setShowScore(false);
+	const showScoreModal = () => setShowScore(true);
+
+	const [hideAnswers, setHideAnswers] = useState(false);
+	const toggleHideAnswers = useCallback(
+		() => setHideAnswers(!hideAnswers),
+		[hideAnswers],
+	);
+
 	const menuItems = useMemo(() => {
+		const exportToExcel = () => {
+			console.log('exporting');
+		};
+
 		const closeGame = () => {
 			showMessage('info', 'Closing game...');
 			setGameData((prev) => {
@@ -74,17 +178,6 @@ export default function Scoresheet() {
 					audioFile: null,
 				};
 			});
-		};
-
-		const debugStuff = () => {
-			console.log('Debug function');
-			console.log(selectedRound, selectedQuestion);
-		};
-
-		const handleMenuClick = (e) => {
-			console.log(e);
-			console.log(selectedRound, selectedQuestion);
-			console.log(gameData.dataFile.data);
 		};
 
 		const team = gameScore.find((t) => t.id === selectedTeam);
@@ -104,23 +197,43 @@ export default function Scoresheet() {
 						disabled: false,
 					},
 					{
+						title: 'Show standings',
+						shortcut: {
+							shiftKey: true,
+							ctrlKey: true,
+							key: 'S',
+						},
+						fn: showScoreModal,
+						disabled: false,
+					},
+					{
+						title: `${hideAnswers ? 'Show' : 'Hide'} answers`,
+						shortcut: {
+							shiftKey: true,
+							ctrlKey: true,
+							key: 'H',
+						},
+						fn: toggleHideAnswers,
+						disabled: false,
+					},
+					{
+						title: 'Export Excel file',
+						shortcut: {
+							shiftKey: true,
+							ctrlKey: true,
+							key: 'E',
+						},
+						fn: exportToExcel,
+						disabled: false,
+					},
+					{
 						title: 'Close game',
 						shortcut: {
-							altKey: false,
+							altKey: true,
 							ctrlKey: true,
 							key: 'Q',
 						},
 						fn: closeGame,
-						disabled: false,
-					},
-					{
-						title: 'Debug',
-						shortcut: {
-							altKey: false,
-							ctrlKey: true,
-							key: '.',
-						},
-						fn: debugStuff,
 						disabled: false,
 					},
 				],
@@ -137,6 +250,7 @@ export default function Scoresheet() {
 							key: '/',
 						},
 						fn: showTeamInfoModal,
+						disabled: () => !selectedTeam,
 					},
 					{
 						title: team
@@ -184,10 +298,11 @@ export default function Scoresheet() {
 							key: 'Backspace',
 							keyDisplay: 'Bksp',
 						},
-						fn: handleMenuClick,
+						fn: promptDeleteTeam,
+						disabled: !selectedTeam,
 					},
 				],
-				disabled: false,
+				disabled: () => !selectedTeam,
 			},
 			{
 				title: 'Round',
@@ -267,6 +382,26 @@ export default function Scoresheet() {
 							return selectedRound >= data.length - 1;
 						},
 					},
+					{
+						title: `${timerState.startTime ? 'Stop' : 'Start'} timer`,
+						shortcut: {
+							altKey: true,
+							ctrlKey: true,
+							key: 'T',
+						},
+						fn: toggleTimer,
+						disabled: () => selectedRound < 0,
+					},
+					{
+						title: `Reset timer`,
+						shortcut: {
+							altKey: true,
+							ctrlKey: true,
+							key: 'R',
+						},
+						fn: resetTimer,
+						disabled: () => selectedRound < 0 || timerState.startTime,
+					},
 				],
 				disabled: false,
 			},
@@ -280,6 +415,11 @@ export default function Scoresheet() {
 		selectedTeam,
 		selectedQuestion,
 		setGameScore,
+		timerState.startTime,
+		toggleTimer,
+		resetTimer,
+		hideAnswers,
+		toggleHideAnswers,
 	]);
 
 	const handleKey = useCallback(
@@ -315,12 +455,13 @@ export default function Scoresheet() {
 	);
 
 	useEffect(() => {
-		document.addEventListener('keydown', handleKey);
+		window.addEventListener('keydown', handleKey);
 		return () => {
-			document.removeEventListener('keydown', handleKey);
+			window.removeEventListener('keydown', handleKey);
 		};
 	}, [handleKey]);
 
+	//load existing game data on first render
 	useEffect(() => {
 		const history = localStorage.getItem('bp-game-history');
 		const savedGames = history ? JSON.parse(history) : [];
@@ -398,47 +539,76 @@ export default function Scoresheet() {
 		}
 	}, []);
 
+	//save current game data on each update
+	useEffect(() => {
+		const id = gameData.id;
+		const data = JSON.stringify(gameScore);
+		localStorage.setItem(`bp-game-${id}`, data);
+	}, [gameScore, gameData.id]);
+
 	return (
-		<div id="scoresheet" className="container" onKeyDown={handleKey}>
+		<div id="scoresheet" className="container">
 			<HandoutContext.Provider value={showHandoutAnswers}>
 				<AnnouncementsContext.Provider value={setShowAnnouncementsModal}>
-					<SelectionContext.Provider
-						value={{
-							selectedRound,
-							selectedQuestion,
-							setCurrentRound,
-							setCurrentQuestion,
-							selectedTeam,
-							setSelectedTeam,
-						}}
+					<ScoreModalContext.Provider
+						value={{ showScore, showScoreModal, hideScoreModal }}
 					>
-						<AnnouncementsModal
-							onHide={handleCloseAnnouncementsModal}
-							show={showAnnouncementsModal}
-						/>
-						<HandoutModal
-							id={'handout-modal'}
-							onHide={hideHandoutAnswers}
-							show={showHandout}
-						/>
-						<TeamInfoModal
-							id={'team-info-modal'}
-							onHide={hideTeamInfoModal}
-							show={showTeamInfo}
-						/>
-						<MenuBar items={menuItems} />
-						{selectedRound !== null ? <TeamForm /> : ''}
-						<div className="f-1 d-flex flex-column px-4">
-							<Row sm={1} md={2} className="f-1">
-								<Col sm={12} md={8}>
-									<ScoreTable openTeamInfo={showTeamInfoModal} />
-								</Col>
-								<Col sm={12} md={4} id="info-panel">
-									<InfoPanel />
-								</Col>
-							</Row>
-						</div>
-					</SelectionContext.Provider>
+						<SelectionContext.Provider
+							value={{
+								selectedRound,
+								selectedQuestion,
+								setCurrentRound,
+								setCurrentQuestion,
+								selectedTeam,
+								setSelectedTeam,
+							}}
+						>
+							<TimerContext.Provider
+								value={{ timerState, setTimerState, toggleTimer, resetTimer }}
+							>
+								<HideAnswersContext.Provider
+									value={{ hideAnswers, toggleHideAnswers }}
+								>
+									<AnnouncementsModal
+										onHide={handleCloseAnnouncementsModal}
+										show={showAnnouncementsModal}
+									/>
+									<HandoutModal
+										id={'handout-modal'}
+										onHide={hideHandoutAnswers}
+										show={showHandout}
+									/>
+									<TeamInfoModal
+										id={'team-info-modal'}
+										onHide={hideTeamInfoModal}
+										show={showTeamInfo}
+									/>
+									<DeleteTeamModal
+										id={'delete-team-modal'}
+										onHide={hideDeleteTeam}
+										show={showDeleteTeam}
+									/>
+									<ScoreModal
+										id={'score-modal'}
+										onHide={hideScoreModal}
+										show={showScore}
+									/>
+									<MenuBar items={menuItems} />
+									{selectedRound !== null ? <TeamForm /> : ''}
+									<div className="f-1 d-flex flex-column px-4">
+										<Row sm={1} md={2} className="f-1">
+											<Col sm={12} md={8}>
+												<ScoreTable openTeamInfo={showTeamInfoModal} />
+											</Col>
+											<Col sm={12} md={4} id="info-panel">
+												<InfoPanel />
+											</Col>
+										</Row>
+									</div>
+								</HideAnswersContext.Provider>
+							</TimerContext.Provider>
+						</SelectionContext.Provider>
+					</ScoreModalContext.Provider>
 				</AnnouncementsContext.Provider>
 			</HandoutContext.Provider>
 		</div>

@@ -1,14 +1,18 @@
-import { useContext, useMemo, useState } from 'react';
+import { useContext, useMemo, useEffect } from 'react';
 import { SelectionContext } from '../../contexts/SelectionContext';
 import { GameDataContext } from '../../contexts/GameDataContext';
 import { AnnouncementsContext } from '../../contexts/AnnouncementsContext';
 import { HandoutContext } from '../../contexts/HandoutContext';
-
+import { TimerContext } from '../../contexts/TimerContext';
+import { HideAnswersContext } from '../../contexts/HideAnswersContext';
 import InfoBox from './InfoBox';
 import ToggleBox from './ToggleBox';
 import LabeledInput from '../LabeledInput';
 import '../../css/InfoPanel.css';
-
+import Timer from '../Timer';
+import { GameScoreContext } from '../../contexts/GameScoreContext';
+import Button from 'react-bootstrap/Button';
+import { ScoreModalContext } from '../../contexts/ScoreModalContext';
 function RoundHeader({ title, answerToggle, toggleHideAnswers, hideAnswers }) {
 	return (
 		<div className="w-100 d-flex flex-row justify-content-between mb-2">
@@ -34,11 +38,17 @@ function RoundHeader({ title, answerToggle, toggleHideAnswers, hideAnswers }) {
 }
 
 export default function InfoPanel() {
-	const [hideAnswers, setHideAnswers] = useState(false);
-	const toggleHideAnswers = () => setHideAnswers(!hideAnswers);
+	const { hideAnswers, toggleHideAnswers } = useContext(HideAnswersContext);
 
-	const { selectedQuestion, selectedRound } = useContext(SelectionContext);
+	const {
+		selectedQuestion,
+		selectedRound,
+		setCurrentQuestion,
+		setCurrentRound,
+	} = useContext(SelectionContext);
+	const { showScoreModal } = useContext(ScoreModalContext);
 	const { gameData, setGameDataField } = useContext(GameDataContext);
+	const { gameScore } = useContext(GameScoreContext);
 	const setShowAnnouncementsModal = useContext(AnnouncementsContext);
 	const showAnnouncements = () => setShowAnnouncementsModal(true);
 	const showHandoutAnswers = useContext(HandoutContext);
@@ -66,6 +76,65 @@ export default function InfoPanel() {
 			fn(e);
 		};
 	};
+
+	const { setTimerState } = useContext(TimerContext);
+
+	const nextQuestion = () => {
+		if (
+			selectedQuestion === null ||
+			selectedQuestion < 0 ||
+			selectedQuestion >= 3
+		)
+			return;
+		setCurrentQuestion(selectedQuestion + 1);
+	};
+
+	const nextRound = () => {
+		const rounds = gameData?.dataFile?.data?.rounds;
+		if (!rounds || selectedRound >= rounds.length - 1) return;
+		setCurrentRound(selectedRound + 1);
+	};
+
+	useEffect(() => {
+		if (!gameData) return;
+		if (selectedRound < 0) return;
+		const resetTimer = (value) => {
+			setTimerState({
+				defaultValue: value * 1000,
+				startValue: value * 1000,
+				lastValue: value * 1000,
+				startTime: null,
+				timeLeft: value,
+			});
+		};
+		const rounds = gameData?.dataFile?.data?.rounds;
+		if (!rounds) return;
+		const round = rounds[selectedRound];
+		const timerValue = round.timer;
+		resetTimer(timerValue);
+	}, [selectedQuestion, selectedRound, gameData, setTimerState]);
+
+	const activeTeams = useMemo(() => {
+		if (!gameScore || !Array.isArray(gameScore)) return 0;
+		return gameScore.reduce((p, c) => {
+			if (c.active) return p + 1;
+			return p;
+		}, 0);
+	}, [gameScore]);
+
+	//this only counts submissions from active teams - teams marked inactive who rejoin will still be scored, though
+	const submissionCount = useMemo(() => {
+		if (selectedRound < 0) return 0;
+		return gameScore.reduce((p, c) => {
+			if (!c.active) return p;
+			const teamRound = c.scores[selectedRound];
+			if (teamRound.type === 'wager') {
+				if (teamRound.scores[selectedQuestion] !== null) return p + 1;
+				return p;
+			}
+			return teamRound.scores.length > 0 ? p + 1 : p;
+		}, 0);
+	}, [selectedRound, selectedQuestion, gameScore]);
 
 	if (selectedRound < 0)
 		return (
@@ -95,128 +164,134 @@ export default function InfoPanel() {
 				/>
 			</div>
 		);
-	else if (
-		currentRound.type === 'wager' ||
-		currentRound.type === 'final' ||
-		currentRound.type === 'tiebreaker'
-	) {
+	else {
 		const currentQuestion =
 			currentRound.type === 'wager'
 				? currentRound.questions[selectedQuestion]
-				: currentRound;
+				: currentRound.type === 'final' ||
+					  currentRound.type === 'tiebreaker' ||
+					  currentRound.type === '3PQ'
+					? currentRound
+					: null;
 		return (
 			<div className="d-flex flex-column align-items-start">
 				<RoundHeader
 					title={currentRound.title}
-					toggleHideAnswers={toggleHideAnswers}
+					toggleHideAnswers={
+						currentRound.type === 'handout' ? () => {} : toggleHideAnswers
+					}
 					hideAnswers={hideAnswers}
-					answerToggle
+					answerToggle={currentRound.type !== 'handout'}
 				/>
-
-				<InfoBox
-					title={`Question ${selectedQuestion < 0 ? '' : selectedQuestion + 1}`}
-				>
-					{currentQuestion.text.split('\n').map((line, i) => {
-						return <div key={i}>{line}</div>;
-					})}
-				</InfoBox>
-				<InfoBox title={'Answer'} hideText={hideAnswers}>
-					{currentQuestion.answer.split('\n').map((line, i) => {
-						return <div key={i}>{line}</div>;
-					})}
-				</InfoBox>
-				{currentQuestion.bonus ? (
-					<InfoBox title={`Bonus`}>
-						{currentQuestion.bonus.split('\n').map((line, i) => {
-							return <div key={i}>{line}</div>;
-						})}
-					</InfoBox>
+				{currentQuestion ? (
+					<>
+						<InfoBox
+							title={`Question ${selectedQuestion < 0 ? '' : selectedQuestion + 1}`}
+						>
+							{currentQuestion.text.split('\n').map((line, i) => {
+								return <div key={i}>{line}</div>;
+							})}
+						</InfoBox>
+						<InfoBox title={'Answer'} hideText={hideAnswers}>
+							{(Array.isArray(currentQuestion.answer)
+								? currentQuestion.answer
+								: currentQuestion.answer.split('\n')
+							).map((line, i) => {
+								return <div key={i}>{line}</div>;
+							})}
+						</InfoBox>
+						{currentQuestion.bonus ? (
+							<InfoBox title={`Bonus`}>
+								{currentQuestion.bonus.split('\n').map((line, i) => {
+									return <div key={i}>{line}</div>;
+								})}
+							</InfoBox>
+						) : (
+							<></>
+						)}
+						{currentQuestion.bonusAnswer ? (
+							<>
+								<InfoBox title={`Bonus answer`} hideText={hideAnswers}>
+									{currentQuestion.bonusAnswer.split('\n').map((line, i) => {
+										return <div key={i}>{line}</div>;
+									})}
+								</InfoBox>
+							</>
+						) : (
+							<></>
+						)}
+					</>
 				) : (
 					<></>
 				)}
-				{currentQuestion.bonusAnswer ? (
+				{currentRound.type === 'audio' ? (
 					<>
-						<InfoBox title={`Bonus answer`} hideText={hideAnswers}>
-							{currentQuestion.bonusAnswer.split('\n').map((line, i) => {
-								return <div key={i}>{line}</div>;
-							})}
+						<audio
+							src={gameData.audioFile.data}
+							controls
+							className="w-100"
+						></audio>
+						<InfoBox title={'Answers'} hideText={hideAnswers}>
+							<table className="song-table">
+								<thead>
+									<tr>
+										<th className="song-no">#</th>
+										<th>Title</th>
+										<th>Artist</th>
+									</tr>
+								</thead>
+								<tbody>
+									{currentRound.questions.map((line, i) => {
+										return (
+											<tr key={i}>
+												<td className="song-no">{i + 1}</td>
+												<td>{line.title}</td>
+												<td>{line.artist}</td>
+											</tr>
+										);
+									})}
+									<tr>
+										<td colSpan="3">
+											<span className="song-no">Theme: </span>
+											{currentRound.theme}
+										</td>
+									</tr>
+								</tbody>
+							</table>
 						</InfoBox>
 					</>
 				) : (
 					<></>
 				)}
-			</div>
-		);
-	} else if (currentRound.type === 'audio') {
-		return (
-			<div className="d-flex flex-column align-items-start">
-				<RoundHeader
-					title={currentRound.title}
-					toggleHideAnswers={toggleHideAnswers}
-					hideAnswers={hideAnswers}
-					answerToggle
-				/>
-				<audio src={gameData.audioFile.data} controls className="w-100"></audio>
-				<InfoBox title={'Answers'} hideText={hideAnswers}>
-					<table className="song-table">
-						<thead>
-							<tr>
-								<th className="song-no">#</th>
-								<th>Title</th>
-								<th>Artist</th>
-							</tr>
-						</thead>
-						<tbody>
-							{currentRound.questions.map((line, i) => {
-								return (
-									<tr key={i}>
-										<td className="song-no">{i + 1}</td>
-										<td>{line.title}</td>
-										<td>{line.artist}</td>
-									</tr>
-								);
-							})}
-							<tr>
-								<td colSpan="3">
-									<span className="song-no">Theme: </span>
-									{currentRound.theme}
-								</td>
-							</tr>
-						</tbody>
-					</table>
-				</InfoBox>
-			</div>
-		);
-	} else if (currentRound.type === 'handout') {
-		return (
-			<div className="d-flex flex-column align-items-start">
-				<RoundHeader title={currentRound.title} />
-				<button className="btn btn-primary" onClick={showHandoutAnswers}>
-					Open answer key
-				</button>
-			</div>
-		);
-	} else if (currentRound.type === '3PQ') {
-		return (
-			<div className="d-flex flex-column align-items-start">
-				<RoundHeader
-					title={currentRound.title}
-					toggleHideAnswers={toggleHideAnswers}
-					hideAnswers={hideAnswers}
-					answerToggle
-				/>
-				<InfoBox title={'Question'}>{currentRound.text}</InfoBox>
-				<InfoBox title={'Answers'} hideText={hideAnswers}>
-					{currentRound.answer.map((line, i) => {
-						return <div key={i}>{line}</div>;
-					})}
-				</InfoBox>
-			</div>
-		);
-	} else {
-		return (
-			<div className="d-flex flex-column align-items-start">
-				<RoundHeader title={currentRound.title} />
+				{currentRound.type === 'handout' ? (
+					<>
+						<button className="btn btn-primary" onClick={showHandoutAnswers}>
+							Open answer key
+						</button>
+					</>
+				) : (
+					<></>
+				)}
+				<Timer defaultValue={currentRound.timer * 1000} />
+				<InfoBox
+					className={'mt-2'}
+					title={`Submissions: ${submissionCount}/${activeTeams} ${submissionCount >= activeTeams && activeTeams !== 0 ? '✅' : ''}`}
+				></InfoBox>
+				<div className="d-flex flex-row">
+					<Button className="me-2" onClick={showScoreModal}>
+						View Scores
+					</Button>
+					{submissionCount >= activeTeams && activeTeams > 0 ? (
+						currentRound.type === 'wager' &&
+						selectedQuestion !== currentRound.questions.length - 1 ? (
+							<Button onClick={nextQuestion}>Next Question</Button>
+						) : (
+							<Button onClick={nextRound}>Next Round</Button>
+						)
+					) : (
+						<></>
+					)}
+				</div>
 			</div>
 		);
 	}

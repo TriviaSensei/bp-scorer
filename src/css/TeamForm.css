@@ -18,8 +18,9 @@
 			height: 2.5em;
 		}
 
-		input[type='number'] {
-			max-width: 5em;
+		input[type='number'],
+		select[name='wager'] {
+			width: 4em;
 		}
 
 		.suggestion-box {
