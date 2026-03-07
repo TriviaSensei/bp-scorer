@@ -2,6 +2,8 @@ import { useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
+import writeXlsxFile from 'write-excel-file/browser';
+
 import { GameDataContext } from '../contexts/GameDataContext';
 import { GameScoreContext } from '../contexts/GameScoreContext';
 import { MessageContext } from '../contexts/MessageContext';
@@ -15,18 +17,17 @@ import AnnouncementsModal from './AnnouncementsModal';
 import HandoutModal from './HandoutModal';
 import ScoreModal from './ScoreModal';
 import TeamInfoModal from './TeamInfoModal';
-
+import moment from 'moment-timezone';
 import '../css/Scoresheet.css';
 import MenuBar from './Scoresheet/MenuBar';
 import TeamForm from './Scoresheet/TeamForm';
 import ScoreTable from './Scoresheet/ScoreTable';
 import InfoPanel from './Scoresheet/InfoPanel';
 import DeleteTeamModal from './DeleteTeamModal';
-import { TagResourceCommand } from '@aws-sdk/client-cognito-identity-provider';
 
 export default function Scoresheet() {
 	const { gameData, setGameData } = useContext(GameDataContext);
-	const { gameScore, setGameScore } = useContext(GameScoreContext);
+	const { gameScore, setGameScore, rankings } = useContext(GameScoreContext);
 	const { showMessage } = useContext(MessageContext);
 	const [timerState, setTimerState] = useState({
 		defaultValue: 0, //default value of the timer (initial start value). user cannot modify this
@@ -164,8 +165,543 @@ export default function Scoresheet() {
 	);
 
 	const menuItems = useMemo(() => {
-		const exportToExcel = () => {
-			console.log('exporting');
+		const getStyle = (...styles) => {
+			let toReturn = {};
+			styles.forEach((obj) => {
+				toReturn = {
+					...toReturn,
+					...obj,
+				};
+			});
+			return toReturn;
+		};
+		const border = (side, color, style) => {
+			const toReturn = {};
+			if (Array.isArray(side)) {
+				side.forEach((s) => {
+					toReturn[`${s}BorderColor`] = color;
+					toReturn[`${s}BorderStyle`] = style;
+				});
+			} else if (side === 'all') {
+				['top', 'bottom', 'left', 'right'].forEach((s) => {
+					toReturn[`${s}BorderColor`] = color;
+					toReturn[`${s}BorderStyle`] = style;
+				});
+			} else {
+				toReturn[`${side}BorderColor`] = color;
+				toReturn[`${side}BorderStyle`] = style;
+			}
+			return toReturn;
+		};
+		const fillColor = (color) => {
+			return { backgroundColor: color };
+		};
+
+		const getColumn = (n) => {
+			let res = '';
+
+			while (n > 0) {
+				// Find remainder
+				let rem = n % 26;
+
+				// If remainder is 0, then a 'Z'
+				// must be there in output
+				if (rem === 0) {
+					res += 'Z';
+					n = Math.floor(n / 26) - 1;
+				}
+
+				// If remainder is non-zero
+				else {
+					res += String.fromCharCode(rem - 1 + 'A'.charCodeAt(0));
+					n = Math.floor(n / 26);
+				}
+			}
+
+			// Reverse the string
+			return res.split('').reverse().join('');
+		};
+
+		const exportToExcel = async () => {
+			const playerCountColor = '#ffd966';
+			const scoreColumnColor = '#f4b084';
+			const rankColumnColor = '#a9d08e';
+			const altBackgroundColor = '#D9E1F2';
+			const yellow = '#ffff00';
+			const blue = '#4472C4';
+			const white = '#ffffff';
+			const black = '#000000';
+
+			const sideBorders = getStyle(
+				border('left', black, 'medium'),
+				border('right', black, 'medium'),
+			);
+			const capBorder = getStyle(sideBorders, border('top', black, 'medium'));
+
+			const totalPlayers = gameScore.reduce((p, c) => {
+				if (c?.playerCount) return p + c.playerCount;
+				return p;
+			}, 0);
+			let columns = [
+				{
+					width: 43.6,
+				},
+			];
+			const headerRows = [
+				[null], //Row 2 - round 1, round 2, etc.
+				[{ value: `Total Players: ${totalPlayers}`, fontWeight: 'bold' }], //Row 3 - total player cell, wager question headers (!, 2, 3, 4)
+				[
+					{
+						value: `Team Name`,
+						height: 63,
+						fontWeight: 'bold',
+						...border('bottom', blue, 'medium'),
+					},
+				], //Row 4 - team name header, pts, wager, score, rank, etc. headers
+			];
+			const minRows = 30;
+			const teamRows = gameScore.map((team, i) => {
+				return [
+					getStyle(
+						{
+							value: team.name,
+						},
+						border('bottom', blue, 'thin'),
+						border('right', black, 'medium'),
+						fillColor(i % 2 === 0 ? altBackgroundColor : white),
+					),
+				];
+			});
+			while (teamRows.length < minRows) {
+				teamRows.push([
+					getStyle(
+						{
+							value: null,
+						},
+						border('bottom', blue, 'thin'),
+						border('right', black, 'medium'),
+						fillColor(teamRows.length % 2 === 0 ? altBackgroundColor : white),
+					),
+				]);
+			}
+			const rounds = gameData?.dataFile?.data?.rounds;
+			let firstHandout = false;
+			let lastScoreColumn = -1;
+			rounds.forEach((rd, rdNo) => {
+				if (rd.type === 'tiebreaker') return;
+
+				if (rd.type === 'wager') {
+					//2 columns for each Q in wager round
+					columns = columns.concat(
+						new Array(rd.questions.length * 2).fill(0).map(() => {
+							return {
+								width: 3.6,
+							};
+						}),
+					);
+					//Round 1 header
+					headerRows[0].push(
+						{
+							value: rd.title,
+							span: rd.questions.length * 2,
+							fontWeight: 'bold',
+							align: 'center',
+						},
+						...new Array(rd.questions.length * 2 - 1),
+					);
+					//Wager round question headers, followed by null cell
+					rd.questions.forEach((q, i) => {
+						headerRows[1].push(
+							getStyle(
+								{
+									value: i + 1,
+									span: 2,
+									fontWeight: 'bold',
+									align: 'center',
+								},
+								border(i === 0 ? ['left', 'top'] : 'top', black, 'medium'),
+								border('right', black, 'thin'),
+							),
+							null,
+						);
+						//pts/wager columns
+						headerRows[2].push(
+							getStyle(
+								{
+									value: ' Pts',
+									fontWeight: 'bold',
+									textRotation: 90,
+								},
+								border('left', black, i === 0 ? 'medium' : 'thin'),
+								border('bottom', blue, 'medium'),
+							),
+							getStyle(
+								{
+									value: ' Wager',
+									fontWeight: 'bold',
+									textRotation: 90,
+								},
+								border('bottom', blue, 'medium'),
+							),
+						);
+						//team score columns
+						teamRows.forEach((team, teamInd) => {
+							team.push(
+								getStyle(
+									{
+										value: gameScore[teamInd]?.scores[rdNo]?.scores[i] || null,
+										backgroundColor:
+											teamInd % 2 === 0 ? altBackgroundColor : white,
+										align: 'center',
+									},
+									border('all', blue, 'thin'),
+								),
+								getStyle(
+									{
+										value: gameScore[teamInd]?.scores[rdNo]?.wagers[i] || null,
+										backgroundColor:
+											teamInd % 2 === 0 ? altBackgroundColor : white,
+										align: 'center',
+									},
+									border('all', blue, 'thin'),
+								),
+							);
+						});
+					});
+				} else {
+					//blank cell in row 2
+					headerRows[0].push(null);
+					//cap border for round title
+					headerRows[1].push(getStyle({ value: null }, capBorder));
+					//round title
+					headerRows[2].push(
+						getStyle(
+							{
+								value: ` ${rd.title}`,
+								fontWeight: 'bold',
+								textRotation: 90,
+								align: 'center',
+							},
+							border('bottom', blue, 'medium'),
+						),
+					);
+					//round score
+					teamRows.forEach((row, teamInd) => {
+						row.push(
+							getStyle(
+								{
+									value:
+										gameScore[teamInd]?.scores[rdNo]?.scores[0]?.score || null,
+									align: 'center',
+								},
+								border('all', blue, 'thin'),
+								sideBorders,
+							),
+						);
+					});
+					//on first handout round,
+					if (rd.type === 'handout' && !firstHandout) {
+						// blank cell in row 2 for player count
+						columns.push({ width: 7.6 });
+						headerRows[0].push(null);
+						// cap border in row 3 for player count
+						headerRows[1].push(
+							getStyle({ value: null }, capBorder, fillColor(playerCountColor)),
+						);
+						headerRows[2].push(
+							getStyle(
+								{
+									value: ' # Players',
+									textRotation: 90,
+									align: 'center',
+									fontWeight: 'bold',
+								},
+								sideBorders,
+								fillColor(playerCountColor),
+								border('bottom', blue, 'medium'),
+							),
+						);
+						//player count
+						teamRows.forEach((row, teamInd) => {
+							row.push(
+								getStyle(
+									{
+										value: gameScore[teamInd]?.playerCount || null,
+										align: 'center',
+									},
+									border('all', blue, 'thin'),
+									sideBorders,
+									fillColor(playerCountColor),
+								),
+							);
+						});
+					}
+				}
+				//each round two 7-width columns after (Score/rank for wager rounds, round title/score for handout/music/final)
+				columns.push({ width: 7.6 }, { width: 7.6 });
+				//blank cell in row 2 above score column
+				headerRows[0].push(null);
+				//cap border with pink fill for score columns
+				headerRows[1].push(
+					getStyle({ value: null }, capBorder, fillColor(scoreColumnColor)),
+				);
+				headerRows[2].push(
+					getStyle(
+						{
+							value: ` ${rd.type === 'final' ? 'FINAL ' : ''}SCORE`,
+							textRotation: 90,
+							fontWeight: 'bold',
+							align: 'center',
+						},
+						sideBorders,
+						fillColor(scoreColumnColor),
+						border('bottom', blue, 'medium'),
+					),
+				);
+				//construct formula for score column
+				if (rd.type === 'wager') {
+					teamRows.forEach((row, teamInd) => {
+						if (gameScore.length <= teamInd) {
+							row.push(
+								getStyle(
+									{
+										value: null,
+										backgroundColor: scoreColumnColor,
+									},
+									border('all', blue, 'thin'),
+									sideBorders,
+								),
+							);
+							return;
+						}
+						const rowNum = 2 + headerRows.length + teamInd;
+						const thisCol = row.length + 1;
+						const cells = new Array(rd.questions.length)
+							.fill(0)
+							.map((n, i) => `${getColumn(thisCol - (2 * i + 2))}${rowNum}`);
+						if (lastScoreColumn >= 0)
+							cells.push(`${getColumn(lastScoreColumn + 1)}${rowNum}`);
+						const value = `=SUM(${cells.join(',')})`;
+						row.push(
+							getStyle(
+								{ value, type: 'Formula', align: 'center' },
+								fillColor(scoreColumnColor),
+								border('all', blue, 'thin'),
+								sideBorders,
+							),
+						);
+					});
+				} else {
+					teamRows.forEach((row, teamInd) => {
+						if (gameScore.length <= teamInd) {
+							row.push(
+								getStyle(
+									{
+										value: null,
+										backgroundColor: scoreColumnColor,
+									},
+									border('all', blue, 'thin'),
+									sideBorders,
+								),
+							);
+							return;
+						}
+						const rowNum = 2 + headerRows.length + teamInd;
+						const roundScoreCol = row.length - (firstHandout ? 1 : 2);
+						const value = `=${getColumn(lastScoreColumn + 1)}${rowNum} + ${getColumn(roundScoreCol + 1)}${rowNum}`;
+						row.push(
+							getStyle(
+								{
+									value,
+									type: 'Formula',
+									align: 'center',
+								},
+								fillColor(scoreColumnColor),
+								border('all', blue, 'thin'),
+								sideBorders,
+							),
+						);
+					});
+					firstHandout = true;
+				}
+
+				lastScoreColumn = teamRows[0].length - 1;
+				//after wager and final question rounds, there is a rank column which is blank in row 2
+				if (rd.type === 'wager' || rd.type === 'final') {
+					headerRows[0].push(null);
+					headerRows[1].push(
+						getStyle({ value: null }, capBorder, fillColor(rankColumnColor)),
+					);
+					headerRows[2].push(
+						getStyle(
+							{
+								value: ` ${rd.type === 'final' ? 'FINAL RANK' : 'Rank'}`,
+								textRotation: 90,
+								fontWeight: 'bold',
+								align: 'center',
+							},
+							sideBorders,
+							border('bottom', blue, 'medium'),
+							fillColor(rankColumnColor),
+						),
+					);
+					//construct formula for rank column
+					const firstRow = 2 + headerRows.length;
+					const lastRow = firstRow + teamRows.length - 1;
+					teamRows.forEach((row, teamInd) => {
+						const rowNum = 2 + headerRows.length + teamInd;
+						const scoreCol = getColumn(row.length);
+						const value = `=if(A${rowNum}<>"",COUNTIF(${scoreCol}${firstRow}:${scoreCol}${lastRow},">"&${scoreCol}${rowNum})+1,"")`;
+						row.push(
+							getStyle(
+								{ value, type: 'Formula', align: 'center' },
+								fillColor(rankColumnColor),
+								border('all', blue, 'thin'),
+								sideBorders,
+							),
+						);
+					});
+				}
+			});
+			//final rank column, buffer, rank table
+			columns = columns.concat(
+				[7, 11.25, 11.25, 27.88, 11.25].map((width) => {
+					return { width };
+				}),
+			);
+
+			const infoSpans = [1, 6, 1, 2, 5, 1, 2, 7];
+			const infoValues = [
+				gameData.venue,
+				gameData.location,
+				null,
+				'Date',
+				new Date(moment.tz(new Date(gameData.date), moment.tz.guess())),
+				null,
+				'Host',
+				gameData.host,
+			].map((value, i) => {
+				if (!value) return null;
+				const info = {
+					value,
+					fontWeight: 'bold',
+					span: infoSpans[i],
+					bottomBorderColor: '#000000',
+					bottomBorderStyle: 'medium',
+					backgroundColor: altBackgroundColor,
+				};
+				if (i % 3 === 0)
+					return {
+						...info,
+						leftBorderColor: '#000000',
+						leftBorderStyle: 'medium',
+					};
+				else if (i % 3 === 1) {
+					if (i === 4) {
+						const toReturn = getStyle(
+							info,
+							getStyle(
+								border('bottom', black, 'medium'),
+								border('right', black, 'medium'),
+							),
+							{ type: Date, format: 'mm/dd/yyyy' },
+						);
+						return toReturn;
+					}
+					return getStyle(
+						info,
+						getStyle(
+							border('bottom', black, 'medium'),
+							border('right', black, 'medium'),
+						),
+					);
+				}
+			});
+
+			const INFO_ROW = [];
+			infoValues.forEach((val) => {
+				if (!val) {
+					INFO_ROW.push(null);
+					return;
+				}
+				INFO_ROW.push({ ...val });
+				for (var i = 0; i < val.span - 1; i++) {
+					INFO_ROW.push(null);
+				}
+			});
+			headerRows[2].push(
+				null,
+				getStyle(
+					{ value: 'Place', fontWeight: 'bold' },
+					fillColor(yellow),
+					border(['left', 'top'], black, 'medium'),
+					border('right', black, 'thin'),
+				),
+				getStyle(
+					{ value: 'TEAM', fontWeight: 'bold' },
+					fillColor(yellow),
+					border('top', black, 'medium'),
+					border('right', black, 'thin'),
+				),
+				getStyle(
+					{ value: 'SCORE', fontWeight: 'bold' },
+					fillColor(yellow),
+					border(['top', 'right'], black, 'medium'),
+				),
+			);
+
+			teamRows.forEach((row, ind) => {
+				const data = rankings[ind];
+				row.push(
+					null,
+					getStyle(
+						{
+							value: data?.rank || null,
+							align: 'left',
+						},
+						border('all', black, 'thin'),
+						border(
+							ind === teamRows.length - 1 ? ['left', 'bottom'] : 'left',
+							black,
+							'medium',
+						),
+						fillColor(yellow),
+					),
+					getStyle(
+						{
+							value: data?.name || null,
+							align: 'left',
+						},
+						border('all', black, 'thin'),
+						border(
+							ind === teamRows.length - 1 ? 'bottom' : [],
+							black,
+							'medium',
+						),
+						fillColor(yellow),
+					),
+					getStyle(
+						{
+							value: data?.score || null,
+							align: 'left',
+						},
+						border('all', black, 'thin'),
+						border(
+							ind === teamRows.length - 1 ? ['right', 'bottom'] : 'right',
+							black,
+							'medium',
+						),
+						fillColor(yellow),
+					),
+					null,
+				);
+			});
+			await writeXlsxFile([INFO_ROW, ...headerRows, ...teamRows], {
+				columns,
+				fileName: `${gameData.date}_${gameData.venue.split(' ').join('')}.xlsx`,
+				fontSize: 12,
+				stickyColumnsCount: 1,
+			});
 		};
 
 		const closeGame = () => {
@@ -420,6 +956,7 @@ export default function Scoresheet() {
 		resetTimer,
 		hideAnswers,
 		toggleHideAnswers,
+		rankings,
 	]);
 
 	const handleKey = useCallback(

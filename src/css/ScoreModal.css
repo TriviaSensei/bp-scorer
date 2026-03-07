@@ -3,6 +3,9 @@
 		tr {
 			border-bottom: 1px solid black;
 		}
+		tr.inactive {
+			color: var(--team-inactive);
+		}
 		tr > td:first-child,
 		tr > th:first-child {
 			text-align: center;

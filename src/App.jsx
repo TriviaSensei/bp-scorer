@@ -1,5 +1,5 @@
 import './App.css';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 import moment from 'moment-timezone';
 
@@ -38,6 +38,31 @@ function App() {
 		status: 'info',
 		timeout: null,
 	});
+
+	const rankings = useMemo(() => {
+		const rs = gameScore
+			.map((team) => {
+				const score = team.scores.reduce((p, rd) => {
+					const roundScore = rd.scores.reduce((p2, c) => {
+						if (!c) return p2;
+						else if ((typeof c).toLowerCase() === 'number') return p2 + c;
+						return p2 + c.score;
+					}, 0);
+					return p + roundScore;
+				}, 0);
+				return {
+					name: team.name,
+					active: team.active,
+					score,
+				};
+			})
+			.sort((a, b) => b.score - a.score);
+		for (var i = 0; i < rs.length; i++) {
+			if (i === 0 || rs[i].score !== rs[i - 1].score) rs[i].rank = i + 1;
+			else rs[i].rank = rs[i - 1].rank;
+		}
+		return rs;
+	}, [gameScore]);
 
 	const hideMessage = () => {
 		if (message.timeout) clearTimeout(message.timeout);
@@ -85,7 +110,7 @@ function App() {
 		<GameDataContext.Provider
 			value={{ gameData, setGameData, setGameDataField }}
 		>
-			<GameScoreContext.Provider value={{ gameScore, setGameScore }}>
+			<GameScoreContext.Provider value={{ gameScore, setGameScore, rankings }}>
 				<MessageContext.Provider value={{ message, showMessage }}>
 					<GameDataErrorModal
 						onHide={handleCloseErrorModal}

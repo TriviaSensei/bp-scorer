@@ -124,7 +124,11 @@ export default function InfoPanel() {
 
 	//this only counts submissions from active teams - teams marked inactive who rejoin will still be scored, though
 	const submissionCount = useMemo(() => {
-		if (selectedRound < 0) return 0;
+		const rounds = gameData?.dataFile?.data?.rounds;
+		if (!rounds) return 0;
+		if (selectedRound < 0 || selectedRound > rounds.length - 1) return 0;
+		const currentRound = rounds[selectedRound];
+		if (!currentRound || currentRound.type === 'tiebreaker') return 0;
 		return gameScore.reduce((p, c) => {
 			if (!c.active) return p;
 			const teamRound = c.scores[selectedRound];
@@ -134,7 +138,7 @@ export default function InfoPanel() {
 			}
 			return teamRound.scores.length > 0 ? p + 1 : p;
 		}, 0);
-	}, [selectedRound, selectedQuestion, gameScore]);
+	}, [selectedRound, selectedQuestion, gameScore, gameData]);
 
 	if (selectedRound < 0)
 		return (
@@ -273,10 +277,15 @@ export default function InfoPanel() {
 					<></>
 				)}
 				<Timer defaultValue={currentRound.timer * 1000} />
-				<InfoBox
-					className={'mt-2'}
-					title={`Submissions: ${submissionCount}/${activeTeams} ${submissionCount >= activeTeams && activeTeams !== 0 ? '✅' : ''}`}
-				></InfoBox>
+				{currentRound.type !== 'tiebreaker' ? (
+					<InfoBox
+						className={'mt-2'}
+						title={`Submissions: ${submissionCount}/${activeTeams} ${submissionCount >= activeTeams && activeTeams !== 0 ? '✅' : ''}`}
+					></InfoBox>
+				) : (
+					<></>
+				)}
+
 				<div className="d-flex flex-row">
 					<Button className="me-2" onClick={showScoreModal}>
 						View Scores

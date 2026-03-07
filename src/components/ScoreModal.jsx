@@ -1,4 +1,4 @@
-import { useContext, useMemo } from 'react';
+import { useContext } from 'react';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 
@@ -9,40 +9,7 @@ import { GameScoreContext } from '../contexts/GameScoreContext';
 import '../css/ScoreModal.css';
 
 export default function ScoreModal(props) {
-	const { gameData } = useContext(GameDataContext);
-	const { gameScore } = useContext(GameScoreContext);
-	const { selectedRound } = useContext(SelectionContext);
-
-	const rankings = useMemo(() => {
-		const rs = gameScore
-			.map((team) => {
-				const score = team.scores.reduce((p, rd, i) => {
-					if (i > selectedRound) return p;
-					return (
-						p +
-						rd.scores.reduce((p2, c) => {
-							if (!c) return p2;
-							else if ((typeof c).toLowerCase() === 'number') return p2 + c;
-							return p + c.score;
-						}, 0)
-					);
-				}, 0);
-				return {
-					name: team.name,
-					score,
-				};
-			})
-			.sort((a, b) => b.score - a.score);
-		for (var i = 0; i < rs.length; i++) {
-			if (i === 0 || rs[i].score !== rs[i - 1].score) rs[i].rank = i + 1;
-			else rs[i].rank = rs[i - 1].rank;
-		}
-		return rs;
-	}, [selectedRound, gameScore]);
-
-	const currentRound = useMemo(() => {
-		return gameData?.dataFile?.data?.rounds[selectedRound];
-	}, [selectedRound, gameData]);
+	const { rankings } = useContext(GameScoreContext);
 
 	return (
 		<Modal
@@ -53,7 +20,7 @@ export default function ScoreModal(props) {
 			centered
 		>
 			<Modal.Header closeButton>
-				<Modal.Title id="score-modal-title">{`Standings ${currentRound ? `(after ${currentRound.title}${currentRound.type === 'wager' ? '' : ' round'})` : ''}`}</Modal.Title>
+				<Modal.Title id="score-modal-title">Current Standings</Modal.Title>
 			</Modal.Header>
 			<Modal.Body>
 				<table>
@@ -72,7 +39,7 @@ export default function ScoreModal(props) {
 						) : (
 							rankings.map((team, i) => {
 								return (
-									<tr key={i}>
+									<tr key={i} className={`${team.active ? '' : 'inactive'}`}>
 										<td>{team.rank}</td>
 										<td>{team.name}</td>
 										<td>{team.score}</td>

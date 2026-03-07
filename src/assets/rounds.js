@@ -50,6 +50,7 @@ for (var i = 1; i <= 5; i++) {
 rounds.push({
 	type: 'tiebreaker',
 	title: 'Tiebreaker',
+	timer: 30,
 });
 
 export default rounds;

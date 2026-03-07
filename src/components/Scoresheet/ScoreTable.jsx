@@ -331,7 +331,8 @@ export default function ScoreTable({ openTeamInfo }) {
 																		: ''
 														}
 													>
-														{teamRound.scores[0]?.score >= 0
+														{teamRound.scores[0]?.score >= 0 ||
+														(r.type === 'final' && teamRound.scores.length > 0)
 															? teamRound.scores[0].score
 															: ''}
 													</td>
