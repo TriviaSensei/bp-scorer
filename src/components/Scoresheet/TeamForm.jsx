@@ -1,5 +1,4 @@
 import { useContext, useState, useCallback, useRef, useMemo } from 'react';
-import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 
@@ -8,7 +7,6 @@ import { GameDataContext } from '../../contexts/GameDataContext';
 import { SelectionContext } from '../../contexts/SelectionContext';
 import { GameScoreContext } from '../../contexts/GameScoreContext';
 import { MessageContext } from '../../contexts/MessageContext';
-import { RevokeTokenRequestFilterSensitiveLog } from '@aws-sdk/client-cognito-identity-provider';
 export default function TeamForm() {
 	const {
 		selectedRound,
