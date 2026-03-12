@@ -45,4 +45,12 @@
 		padding-left: 0.5em;
 		padding-right: 0.5em;
 	}
+
+	.cat-list {
+		font-size: 0.8em;
+	}
+
+	.category-heading {
+		font-weight: bold;
+	}
 }

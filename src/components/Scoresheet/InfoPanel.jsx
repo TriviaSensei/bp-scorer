@@ -56,6 +56,7 @@ export default function InfoPanel() {
 		const rounds = gameData?.dataFile?.data?.rounds;
 		if (!rounds || selectedRound < 0 || selectedRound > rounds.length - 1)
 			return null;
+		console.log(rounds[selectedRound]);
 		return rounds[selectedRound];
 	}, [gameData, selectedRound]);
 
@@ -189,9 +190,27 @@ export default function InfoPanel() {
 				/>
 				{currentQuestion ? (
 					<>
+						<>
+							{selectedQuestion === 0 ? (
+								<InfoBox title={'Categories'}>
+									<ol className="cat-list">
+										{currentRound.questions.map((q, i) => {
+											return <li key={i}>{q.category}</li>;
+										})}
+									</ol>
+								</InfoBox>
+							) : (
+								<></>
+							)}
+						</>
 						<InfoBox
 							title={`Question ${selectedQuestion < 0 ? '' : selectedQuestion + 1}`}
 						>
+							{
+								<div className="category-heading">
+									{currentQuestion.category}
+								</div>
+							}
 							{currentQuestion.text.split('\n').map((line, i) => {
 								return <div key={i}>{line}</div>;
 							})}
