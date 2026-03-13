@@ -345,10 +345,12 @@ export default function Scoresheet() {
 						);
 						//team score columns
 						teamRows.forEach((team, teamInd) => {
+							const score = gameScore[teamInd]?.scores[rdNo]?.scores[i];
+							const wager = gameScore[teamInd]?.scores[rdNo]?.wagers[i];
 							team.push(
 								getStyle(
 									{
-										value: gameScore[teamInd]?.scores[rdNo]?.scores[i] || null,
+										value: score === null ? null : score,
 										backgroundColor:
 											teamInd % 2 === 0 ? altBackgroundColor : white,
 										align: 'center',
@@ -357,7 +359,7 @@ export default function Scoresheet() {
 								),
 								getStyle(
 									{
-										value: gameScore[teamInd]?.scores[rdNo]?.wagers[i] || null,
+										value: wager === null ? null : wager,
 										backgroundColor:
 											teamInd % 2 === 0 ? altBackgroundColor : white,
 										align: 'center',
