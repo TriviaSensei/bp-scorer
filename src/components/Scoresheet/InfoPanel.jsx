@@ -206,7 +206,7 @@ export default function InfoPanel() {
 										})}
 									</ol>
 								</InfoBox>
-							) : selectedQuestion === currentRound.questions.length - 1 &&
+							) : selectedQuestion === currentRound.questions?.length - 1 &&
 							  nextTitle ? (
 								<InfoBox
 									title={`Pick up ${nextTitle} round`}
