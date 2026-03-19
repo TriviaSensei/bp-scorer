@@ -178,6 +178,12 @@ export default function InfoPanel() {
 					  currentRound.type === '3PQ'
 					? currentRound
 					: null;
+		const rounds = gameData?.dataFile?.data?.rounds;
+		const nr = rounds[selectedRound + 1];
+		let nextTitle = '';
+		if (nr && (nr.type === 'handout' || nr.type === 'audio'))
+			nextTitle = nr.title.toLowerCase();
+		console.log(nr);
 		return (
 			<div className="d-flex flex-column align-items-start">
 				<RoundHeader
@@ -191,6 +197,7 @@ export default function InfoPanel() {
 				{currentQuestion ? (
 					<>
 						<>
+							{/* category list on the first question */}
 							{selectedQuestion === 0 ? (
 								<InfoBox title={'Categories'}>
 									<ol className="cat-list">
@@ -199,10 +206,16 @@ export default function InfoPanel() {
 										})}
 									</ol>
 								</InfoBox>
+							) : selectedQuestion === currentRound.questions.length - 1 &&
+							  nextTitle ? (
+								<InfoBox
+									title={`Pick up ${nextTitle} round`}
+								>{`As you turn in your answers for this one, don't forget to pick up your ${nextTitle} round!`}</InfoBox>
 							) : (
 								<></>
 							)}
 						</>
+						{/* question text */}
 						<InfoBox
 							title={`Question ${selectedQuestion < 0 ? '' : selectedQuestion + 1}`}
 						>
@@ -215,6 +228,7 @@ export default function InfoPanel() {
 								return <div key={i}>{line}</div>;
 							})}
 						</InfoBox>
+						{/* answer text */}
 						<InfoBox title={'Answer'} hideText={hideAnswers}>
 							{(Array.isArray(currentQuestion.answer)
 								? currentQuestion.answer
