@@ -183,7 +183,6 @@ export default function InfoPanel() {
 		let nextTitle = '';
 		if (nr && (nr.type === 'handout' || nr.type === 'audio'))
 			nextTitle = nr.title.toLowerCase();
-		console.log(nr);
 		return (
 			<div className="d-flex flex-column align-items-start">
 				<RoundHeader

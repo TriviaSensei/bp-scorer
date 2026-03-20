@@ -388,11 +388,12 @@ export default function Scoresheet() {
 					);
 					//round score
 					teamRows.forEach((row, teamInd) => {
+						const score = gameScore[teamInd]?.scores[rdNo]?.scores[0]?.score;
+
 						row.push(
 							getStyle(
 								{
-									value:
-										gameScore[teamInd]?.scores[rdNo]?.scores[0]?.score || null,
+									value: score === null ? null : score,
 									align: 'center',
 								},
 								border('all', blue, 'thin'),
