@@ -737,8 +737,8 @@ export default function Scoresheet() {
 					{
 						title: 'Show standings',
 						shortcut: {
-							shiftKey: true,
-							ctrlKey: true,
+							altKey: true,
+							ctrlKey: false,
 							key: 'S',
 						},
 						fn: showScoreModal,
@@ -747,8 +747,8 @@ export default function Scoresheet() {
 					{
 						title: `${hideAnswers ? 'Show' : 'Hide'} answers`,
 						shortcut: {
-							shiftKey: true,
-							ctrlKey: true,
+							altKey: true,
+							ctrlKey: false,
 							key: 'H',
 						},
 						fn: toggleHideAnswers,
@@ -784,7 +784,7 @@ export default function Scoresheet() {
 						title: 'Team info...',
 						shortcut: {
 							altKey: true,
-							ctrlKey: true,
+							ctrlKey: false,
 							key: '/',
 						},
 						fn: showTeamInfoModal,
@@ -848,8 +848,8 @@ export default function Scoresheet() {
 					{
 						title: 'Previous question',
 						shortcut: {
-							altKey: false,
-							ctrlKey: true,
+							altKey: true,
+							ctrlKey: false,
 							key: 'ArrowLeft',
 							keyDisplay: 'Left',
 						},
@@ -862,8 +862,8 @@ export default function Scoresheet() {
 					{
 						title: 'Next question',
 						shortcut: {
-							altKey: false,
-							ctrlKey: true,
+							altKey: true,
+							ctrlKey: false,
 							key: 'ArrowRight',
 							keyDisplay: 'Right',
 						},
@@ -881,7 +881,7 @@ export default function Scoresheet() {
 					{
 						title: 'Previous Round',
 						shortcut: {
-							altKey: true,
+							altKey: false,
 							ctrlKey: true,
 							key: 'ArrowLeft',
 							keyDisplay: 'Left',
@@ -901,7 +901,7 @@ export default function Scoresheet() {
 					{
 						title: 'Next Round',
 						shortcut: {
-							altKey: true,
+							altKey: false,
 							ctrlKey: true,
 							key: 'ArrowRight',
 							keyDisplay: 'Right',
@@ -924,7 +924,7 @@ export default function Scoresheet() {
 						title: `${timerState.startTime ? 'Stop' : 'Start'} timer`,
 						shortcut: {
 							altKey: true,
-							ctrlKey: true,
+							ctrlKey: false,
 							key: 'T',
 						},
 						fn: toggleTimer,
@@ -934,7 +934,7 @@ export default function Scoresheet() {
 						title: `Reset timer`,
 						shortcut: {
 							altKey: true,
-							ctrlKey: true,
+							ctrlKey: false,
 							key: 'R',
 						},
 						fn: resetTimer,

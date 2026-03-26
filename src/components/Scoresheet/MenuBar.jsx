@@ -1,13 +1,8 @@
-import Container from 'react-bootstrap/Container';
 import Nav from 'react-bootstrap/Nav';
 import Navbar from 'react-bootstrap/Navbar';
 import NavDropdown from 'react-bootstrap/NavDropdown';
-import { GameScoreContext } from '../../contexts/GameScoreContext';
-import { GameDataContext } from '../../contexts/GameDataContext';
 import '../../css/MenuBar.css';
-import { MessageContext } from '../../contexts/MessageContext';
-import { AnnouncementsContext } from '../../contexts/AnnouncementsContext';
-import { SelectionContext } from '../../contexts/SelectionContext';
+
 export default function MenuBar(props) {
 	const menuItems = props.items;
 

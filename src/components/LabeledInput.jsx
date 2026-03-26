@@ -14,11 +14,16 @@ export default function LabeledInput(props) {
 			? localStorage.getItem(`bp-${props.name}`)
 			: '';
 
+	const id = props.id || crypto.randomUUID();
+
 	return (
 		<div className="labeled-input-container">
-			<div className="input-label">{props.label}</div>
+			<label htmlFor={id} className="input-label">
+				{props.label}
+			</label>
 			<input
 				type={props.type || 'text'}
+				id={id}
 				name={props.name}
 				value={props.value}
 				defaultValue={defaultValue}

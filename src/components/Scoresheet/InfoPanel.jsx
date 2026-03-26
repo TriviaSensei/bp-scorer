@@ -56,7 +56,6 @@ export default function InfoPanel() {
 		const rounds = gameData?.dataFile?.data?.rounds;
 		if (!rounds || selectedRound < 0 || selectedRound > rounds.length - 1)
 			return null;
-		console.log(rounds[selectedRound]);
 		return rounds[selectedRound];
 	}, [gameData, selectedRound]);
 
