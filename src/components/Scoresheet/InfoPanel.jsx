@@ -1,10 +1,10 @@
-import { useContext, useMemo, useEffect } from 'react';
+import { useContext, useMemo } from 'react';
 import { SelectionContext } from '../../contexts/SelectionContext';
 import { GameDataContext } from '../../contexts/GameDataContext';
 import { AnnouncementsContext } from '../../contexts/AnnouncementsContext';
 import { HandoutContext } from '../../contexts/HandoutContext';
-import { TimerContext } from '../../contexts/TimerContext';
 import { HideAnswersContext } from '../../contexts/HideAnswersContext';
+import { TeamNameInputContext } from '../../contexts/TeamNameInputContext';
 import InfoBox from './InfoBox';
 import ToggleBox from './ToggleBox';
 import LabeledInput from '../LabeledInput';
@@ -59,6 +59,8 @@ export default function InfoPanel() {
 		return rounds[selectedRound];
 	}, [gameData, selectedRound]);
 
+	const { focusTeamName } = useContext(TeamNameInputContext);
+
 	const handleSetGameDataField = (field) => {
 		return (e) => {
 			const history = localStorage.getItem('bp-game-history');
@@ -77,7 +79,7 @@ export default function InfoPanel() {
 		};
 	};
 
-	const { setTimerState } = useContext(TimerContext);
+	// const { setTimerState } = useContext(TimerContext);
 
 	const nextQuestion = () => {
 		if (
@@ -87,32 +89,15 @@ export default function InfoPanel() {
 		)
 			return;
 		setCurrentQuestion(selectedQuestion + 1);
+		focusTeamName();
 	};
 
 	const nextRound = () => {
 		const rounds = gameData?.dataFile?.data?.rounds;
 		if (!rounds || selectedRound >= rounds.length - 1) return;
 		setCurrentRound(selectedRound + 1);
+		focusTeamName();
 	};
-
-	useEffect(() => {
-		if (!gameData) return;
-		if (selectedRound < 0) return;
-		const resetTimer = (value) => {
-			setTimerState({
-				defaultValue: value * 1000,
-				startValue: value * 1000,
-				lastValue: value * 1000,
-				startTime: null,
-				timeLeft: value,
-			});
-		};
-		const rounds = gameData?.dataFile?.data?.rounds;
-		if (!rounds) return;
-		const round = rounds[selectedRound];
-		const timerValue = round.timer;
-		resetTimer(timerValue);
-	}, [selectedQuestion, selectedRound, gameData, setTimerState]);
 
 	const activeTeams = useMemo(() => {
 		if (!gameScore || !Array.isArray(gameScore)) return 0;
@@ -144,9 +129,13 @@ export default function InfoPanel() {
 		return (
 			<div className="d-flex flex-column align-items-start">
 				<h5>Pregame</h5>
-				<button className="btn btn-primary mb-3" onClick={showAnnouncements}>
+				<Button
+					variant={'primary'}
+					className="mb-3"
+					onClick={showAnnouncements}
+				>
 					Show announcements
-				</button>
+				</Button>
 				<h6>{`Game date: ${gameData.date}`}</h6>
 				<LabeledInput
 					name={'host-name'}
@@ -192,6 +181,18 @@ export default function InfoPanel() {
 					hideAnswers={hideAnswers}
 					answerToggle={currentRound.type !== 'handout'}
 				/>
+				{currentRound.type === 'final' ? (
+					<Button
+						variant={'primary'}
+						className="mb-3"
+						onClick={showAnnouncements}
+					>
+						Show announcements
+					</Button>
+				) : (
+					''
+				)}
+
 				{currentQuestion ? (
 					<>
 						<>
@@ -300,9 +301,9 @@ export default function InfoPanel() {
 				)}
 				{currentRound.type === 'handout' ? (
 					<>
-						<button className="btn btn-primary" onClick={showHandoutAnswers}>
+						<Button variant={'primary'} onClick={showHandoutAnswers}>
 							Open answer key
-						</button>
+						</Button>
 					</>
 				) : (
 					<></>

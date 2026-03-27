@@ -1,11 +1,20 @@
 import Nav from 'react-bootstrap/Nav';
 import Navbar from 'react-bootstrap/Navbar';
 import NavDropdown from 'react-bootstrap/NavDropdown';
+import { TeamNameInputContext } from '../../contexts/TeamNameInputContext';
+
 import '../../css/MenuBar.css';
+import { useContext } from 'react';
 
 export default function MenuBar(props) {
 	const menuItems = props.items;
-
+	const { focusTeamName } = useContext(TeamNameInputContext);
+	const performFunction = (fn) => {
+		return () => {
+			fn();
+			focusTeamName();
+		};
+	};
 	return (
 		<Navbar id="menu-bar" expand="lg" className="">
 			<div className="w-100 ps-4">
@@ -59,7 +68,7 @@ export default function MenuBar(props) {
 												key={j}
 												href=""
 												disabled={disabled}
-												onClick={option.fn || null}
+												onClick={option.fn ? performFunction(option.fn) : null}
 											>
 												<div className="d-flex flex-row justify-content-between menu-option">
 													<div className="menu-option-name">{option.title}</div>

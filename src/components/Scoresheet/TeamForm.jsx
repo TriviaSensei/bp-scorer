@@ -7,6 +7,7 @@ import { GameDataContext } from '../../contexts/GameDataContext';
 import { SelectionContext } from '../../contexts/SelectionContext';
 import { GameScoreContext } from '../../contexts/GameScoreContext';
 import { MessageContext } from '../../contexts/MessageContext';
+import { TeamNameInputContext } from '../../contexts/TeamNameInputContext';
 export default function TeamForm() {
 	const {
 		selectedRound,
@@ -26,8 +27,8 @@ export default function TeamForm() {
 	const [selectedSuggestion, setSelectedSuggestion] = useState(null);
 
 	const formRef = useRef();
-	const selectRef = useRef();
-	const teamNameRef = useRef();
+	const wagerRef = useRef();
+	const { teamNameRef, focusTeamName } = useContext(TeamNameInputContext);
 
 	const handleChangeScore = (e) => {
 		const val = Number(e.target.value);
@@ -169,7 +170,7 @@ export default function TeamForm() {
 
 	const handleSubmit = (e) => {
 		//if this is getting triggered from the wager select
-		if (e.target === selectRef.current) {
+		if (e.target === wagerRef.current) {
 			//see which key is triggering it - if it's not the enter key, then don't submit the form
 			const key = e.key?.toLowerCase();
 			if (key && key !== 'enter' && key !== 'return') return;
@@ -323,8 +324,8 @@ export default function TeamForm() {
 		}
 
 		setSubmitting(false);
-		teamNameRef.current.value = '';
-		teamNameRef.current.focus();
+		if (teamNameRef.current) teamNameRef.current.value = '';
+		focusTeamName();
 	};
 
 	const handleDeleteResult = (e) => {
@@ -379,9 +380,13 @@ export default function TeamForm() {
 							id: team.id,
 						};
 					})
-					.sort((a, b) =>
-						a.teamName.toLowerCase().localeCompare(b.teamName.toLowerCase()),
-					);
+					.sort((a, b) => {
+						if (a.teamName.toLowerCase().trim() === val.trim()) return -1;
+						else if (b.teamName.toLowerCase().trim() === val.trim()) return 1;
+						return a.teamName
+							.toLowerCase()
+							.localeCompare(b.teamName.toLowerCase());
+					});
 				setSuggestions(teams);
 				setSelectedSuggestion(null);
 			}
@@ -465,6 +470,7 @@ export default function TeamForm() {
 							</div>
 						</div>
 					</Col>
+					{/* Team name with suggestions for autofill */}
 					<Col>
 						<div className="labeled-input f-1">
 							<div className="input-label">Team</div>
@@ -480,7 +486,6 @@ export default function TeamForm() {
 								onBlur={clearSuggestions}
 								ref={teamNameRef}
 							></input>
-							{}
 							<div className="suggestion-box">
 								{suggestions.map((s, i) => {
 									return (
@@ -500,6 +505,7 @@ export default function TeamForm() {
 							</div>
 						</div>
 					</Col>
+					{/* Question score, wager, team player count, etc. */}
 					<Col lg="auto" md="auto" sm="auto">
 						{selectedRound >= -1 && selectedRound < rounds.length - 1 ? (
 							<div className="d-flex flex-row align-items-end h-100">
@@ -537,7 +543,7 @@ export default function TeamForm() {
 											value={questionWager}
 											onChange={handleChangeWager}
 											onKeyDown={handleSubmit}
-											ref={selectRef}
+											ref={wagerRef}
 										>
 											<option value="">--</option>
 											{selectedRoundData.wagers.map((w, i) => {
@@ -548,13 +554,6 @@ export default function TeamForm() {
 												);
 											})}
 										</select>
-										{/* <input
-											type="number"
-											min="1"
-											name="wager"
-											value={questionWager}
-											onChange={handleChangeWager}
-										></input> */}
 									</div>
 								) : (
 									''

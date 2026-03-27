@@ -1,4 +1,11 @@
-import { useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import {
+	useContext,
+	useState,
+	useEffect,
+	useCallback,
+	useMemo,
+	useRef,
+} from 'react';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import writeXlsxFile from 'write-excel-file/browser';
@@ -12,6 +19,7 @@ import { HandoutContext } from '../contexts/HandoutContext';
 import { TimerContext } from '../contexts/TimerContext';
 import { ScoreModalContext } from '../contexts/ScoreModalContext';
 import { HideAnswersContext } from '../contexts/HideAnswersContext';
+import { TeamNameInputContext } from '../contexts/TeamNameInputContext';
 import AnnouncementsModal from './AnnouncementsModal';
 import HandoutModal from './HandoutModal';
 import ScoreModal from './ScoreModal';
@@ -36,6 +44,11 @@ export default function Scoresheet() {
 		timeLeft: 0, //current time left, in seconds, used to update the actual display
 	});
 
+	const teamNameRef = useRef();
+	const focusTeamName = () => {
+		if (teamNameRef.current) teamNameRef.current.focus();
+	};
+
 	const toggleTimer = useCallback(() => {
 		const startTimer = () => {
 			if (timerState.startTime) return;
@@ -58,20 +71,26 @@ export default function Scoresheet() {
 		};
 		if (timerState.startTime) stopTimer();
 		else startTimer();
+		focusTeamName();
 	}, [timerState.startTime]);
 
-	const resetTimer = useCallback(() => {
-		//can't reset while timer is running
-		if (timerState.startTime) return;
-		setTimerState((prev) => {
-			return {
-				...prev,
-				lastValue: prev.startValue,
-				startTime: null,
-				timeLeft: Math.floor(prev.startValue / 1000),
-			};
-		});
-	}, [timerState.startTime]);
+	const resetTimer = useCallback(
+		(value) => {
+			focusTeamName();
+			//can't reset while timer is running
+			if (timerState.startTime) return;
+			setTimerState((prev) => {
+				return {
+					defaultValue: value * 1000 || prev.defaultValue,
+					lastValue: value * 1000 || prev.startValue,
+					startValue: value * 1000 || prev.startValue,
+					startTime: null,
+					timeLeft: Math.floor(prev.startValue / 1000),
+				};
+			});
+		},
+		[timerState.startTime],
+	);
 
 	useEffect(() => {
 		let timeout, interval;
@@ -874,7 +893,13 @@ export default function Scoresheet() {
 								selectedQuestion >= 3
 							)
 								return;
+							const data = gameData?.dataFile?.data?.rounds;
+							if (!data) return;
 							setSelectedQuestion((prev) => prev + 1);
+							if (timerState.timeLeft <= 0) {
+								if (timerState.startTime) toggleTimer();
+								resetTimer(data[selectedRound].timer);
+							}
 						},
 						disabled: () => selectedQuestion < 0 || selectedQuestion >= 3,
 					},
@@ -912,8 +937,13 @@ export default function Scoresheet() {
 							const newRound = selectedRound + 1;
 							if (newRound >= data.length) return;
 							setSelectedRound(newRound);
+
 							if (data[newRound]?.type === 'wager') setSelectedQuestion(0);
 							else setSelectedQuestion(-1);
+							if (timerState.timeLeft <= 0) {
+								if (timerState.startTime) toggleTimer();
+								resetTimer(data[newRound].timer);
+							}
 						},
 						disabled: () => {
 							const data = gameData?.dataFile?.data?.rounds;
@@ -953,9 +983,9 @@ export default function Scoresheet() {
 		selectedTeam,
 		selectedQuestion,
 		setGameScore,
-		timerState.startTime,
 		toggleTimer,
 		resetTimer,
+		timerState,
 		hideAnswers,
 		toggleHideAnswers,
 		rankings,
@@ -984,7 +1014,10 @@ export default function Scoresheet() {
 							default:
 								disabled = false;
 						}
-						if (!disabled) item.fn();
+						focusTeamName();
+						if (!disabled) {
+							item.fn();
+						}
 						return true;
 					}
 				});
@@ -1087,69 +1120,71 @@ export default function Scoresheet() {
 
 	return (
 		<div id="scoresheet" className="container">
-			<HandoutContext.Provider value={showHandoutAnswers}>
-				<AnnouncementsContext.Provider value={setShowAnnouncementsModal}>
-					<ScoreModalContext.Provider
-						value={{ showScore, showScoreModal, hideScoreModal }}
-					>
-						<SelectionContext.Provider
-							value={{
-								selectedRound,
-								selectedQuestion,
-								setCurrentRound,
-								setCurrentQuestion,
-								selectedTeam,
-								setSelectedTeam,
-							}}
+			<TeamNameInputContext.Provider value={{ teamNameRef, focusTeamName }}>
+				<HandoutContext.Provider value={showHandoutAnswers}>
+					<AnnouncementsContext.Provider value={setShowAnnouncementsModal}>
+						<ScoreModalContext.Provider
+							value={{ showScore, showScoreModal, hideScoreModal }}
 						>
-							<TimerContext.Provider
-								value={{ timerState, setTimerState, toggleTimer, resetTimer }}
+							<SelectionContext.Provider
+								value={{
+									selectedRound,
+									selectedQuestion,
+									setCurrentRound,
+									setCurrentQuestion,
+									selectedTeam,
+									setSelectedTeam,
+								}}
 							>
-								<HideAnswersContext.Provider
-									value={{ hideAnswers, toggleHideAnswers }}
+								<TimerContext.Provider
+									value={{ timerState, setTimerState, toggleTimer, resetTimer }}
 								>
-									<AnnouncementsModal
-										onHide={handleCloseAnnouncementsModal}
-										show={showAnnouncementsModal}
-									/>
-									<HandoutModal
-										id={'handout-modal'}
-										onHide={hideHandoutAnswers}
-										show={showHandout}
-									/>
-									<TeamInfoModal
-										id={'team-info-modal'}
-										onHide={hideTeamInfoModal}
-										show={showTeamInfo}
-									/>
-									<DeleteTeamModal
-										id={'delete-team-modal'}
-										onHide={hideDeleteTeam}
-										show={showDeleteTeam}
-									/>
-									<ScoreModal
-										id={'score-modal'}
-										onHide={hideScoreModal}
-										show={showScore}
-									/>
-									<MenuBar items={menuItems} />
-									{selectedRound !== null ? <TeamForm /> : ''}
-									<div className="f-1 d-flex flex-column px-4">
-										<Row sm={1} md={2} className="f-1">
-											<Col sm={12} md={8}>
-												<ScoreTable openTeamInfo={showTeamInfoModal} />
-											</Col>
-											<Col sm={12} md={4} id="info-panel">
-												<InfoPanel />
-											</Col>
-										</Row>
-									</div>
-								</HideAnswersContext.Provider>
-							</TimerContext.Provider>
-						</SelectionContext.Provider>
-					</ScoreModalContext.Provider>
-				</AnnouncementsContext.Provider>
-			</HandoutContext.Provider>
+									<HideAnswersContext.Provider
+										value={{ hideAnswers, toggleHideAnswers }}
+									>
+										<AnnouncementsModal
+											onHide={handleCloseAnnouncementsModal}
+											show={showAnnouncementsModal}
+										/>
+										<HandoutModal
+											id={'handout-modal'}
+											onHide={hideHandoutAnswers}
+											show={showHandout}
+										/>
+										<TeamInfoModal
+											id={'team-info-modal'}
+											onHide={hideTeamInfoModal}
+											show={showTeamInfo}
+										/>
+										<DeleteTeamModal
+											id={'delete-team-modal'}
+											onHide={hideDeleteTeam}
+											show={showDeleteTeam}
+										/>
+										<ScoreModal
+											id={'score-modal'}
+											onHide={hideScoreModal}
+											show={showScore}
+										/>
+										<MenuBar items={menuItems} />
+										{selectedRound !== null ? <TeamForm /> : ''}
+										<div className="f-1 d-flex flex-column px-4">
+											<Row sm={1} md={2} className="f-1">
+												<Col sm={12} md={8}>
+													<ScoreTable openTeamInfo={showTeamInfoModal} />
+												</Col>
+												<Col sm={12} md={4} id="info-panel">
+													<InfoPanel />
+												</Col>
+											</Row>
+										</div>
+									</HideAnswersContext.Provider>
+								</TimerContext.Provider>
+							</SelectionContext.Provider>
+						</ScoreModalContext.Provider>
+					</AnnouncementsContext.Provider>
+				</HandoutContext.Provider>
+			</TeamNameInputContext.Provider>
 		</div>
 	);
 }

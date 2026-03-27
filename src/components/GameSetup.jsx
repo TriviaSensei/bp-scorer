@@ -30,6 +30,8 @@ export default function GameSetup() {
 			announcements: [],
 			rounds: [...rounds],
 			postAnnouncements: [],
+			currentRound: -1,
+			currentQuestion: -1,
 		};
 
 		let currentRound = -1;

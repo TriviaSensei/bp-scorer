@@ -2,16 +2,20 @@ import { useContext } from 'react';
 import Button from 'react-bootstrap/Button';
 import ButtonGroup from 'react-bootstrap/ButtonGroup';
 import { TimerContext } from '../contexts/TimerContext';
+import { TeamNameInputContext } from '../contexts/TeamNameInputContext';
 import '../css/Timer.css';
 
 export default function Timer() {
 	const { timerState, setTimerState, toggleTimer, resetTimer } =
 		useContext(TimerContext);
 
+	const { focusTeamName } = useContext(TeamNameInputContext);
+
 	const editMinutes = [-1, 1];
 	const editSeconds = [-10, -1, 1, 10];
 	const disableModifiers = () => timerState.startTime !== null;
 	const modifyTime = (sec) => {
+		focusTeamName();
 		if (disableModifiers()) return;
 		setTimerState((prev) => {
 			return {
