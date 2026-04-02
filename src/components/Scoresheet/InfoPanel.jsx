@@ -166,6 +166,7 @@ export default function InfoPanel() {
 					  currentRound.type === '3PQ'
 					? currentRound
 					: null;
+		console.log(currentQuestion);
 		const rounds = gameData?.dataFile?.data?.rounds;
 		const nr = rounds[selectedRound + 1];
 		let nextTitle = '';
@@ -230,8 +231,8 @@ export default function InfoPanel() {
 						{/* answer text */}
 						<InfoBox title={'Answer'} hideText={hideAnswers}>
 							{(Array.isArray(currentQuestion.answer)
-								? currentQuestion.answer
-								: currentQuestion.answer.split('\n')
+								? currentQuestion.answer.toString()
+								: currentQuestion.answer.toString().split('\n')
 							).map((line, i) => {
 								return <div key={i}>{line}</div>;
 							})}
@@ -248,9 +249,12 @@ export default function InfoPanel() {
 						{currentQuestion.bonusAnswer ? (
 							<>
 								<InfoBox title={`Bonus answer`} hideText={hideAnswers}>
-									{currentQuestion.bonusAnswer.split('\n').map((line, i) => {
-										return <div key={i}>{line}</div>;
-									})}
+									{currentQuestion.bonusAnswer
+										.toString()
+										.split('\n')
+										.map((line, i) => {
+											return <div key={i}>{line}</div>;
+										})}
 								</InfoBox>
 							</>
 						) : (
