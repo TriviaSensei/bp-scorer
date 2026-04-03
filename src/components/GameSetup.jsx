@@ -143,11 +143,11 @@ export default function GameSetup() {
 					}
 					cr.questions.push({
 						number: row[0],
-						category: row[1],
-						text: row[2],
-						answer: row[3],
-						bonus: row[4],
-						bonusAnswer: row[5],
+						category: row[1]?.toString(),
+						text: row[2]?.toString(),
+						answer: row[3]?.toString(),
+						bonus: row[4]?.toString(),
+						bonusAnswer: row[5]?.toString(),
 					});
 				}
 			} else if (
