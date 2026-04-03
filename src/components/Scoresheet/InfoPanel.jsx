@@ -231,7 +231,7 @@ export default function InfoPanel() {
 						{/* answer text */}
 						<InfoBox title={'Answer'} hideText={hideAnswers}>
 							{(Array.isArray(currentQuestion.answer)
-								? currentQuestion.answer.toString()
+								? currentQuestion.answer
 								: currentQuestion.answer.toString().split('\n')
 							).map((line, i) => {
 								return <div key={i}>{line}</div>;
