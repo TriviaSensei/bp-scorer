@@ -20,6 +20,7 @@ import { TimerContext } from '../contexts/TimerContext';
 import { ScoreModalContext } from '../contexts/ScoreModalContext';
 import { HideAnswersContext } from '../contexts/HideAnswersContext';
 import { TeamNameInputContext } from '../contexts/TeamNameInputContext';
+import { MenuContext } from '../contexts/MenuContext';
 import AnnouncementsModal from './AnnouncementsModal';
 import HandoutModal from './HandoutModal';
 import ScoreModal from './ScoreModal';
@@ -74,33 +75,13 @@ export default function Scoresheet() {
 		focusTeamName();
 	}, [timerState.startTime]);
 
-	const resetTimer = useCallback(
-		(value) => {
-			focusTeamName();
-			//can't reset while timer is running
-			if (timerState.startTime) return;
-			setTimerState((prev) => {
-				return {
-					defaultValue: value * 1000 || prev.defaultValue,
-					lastValue: value * 1000 || prev.startValue,
-					startValue: value * 1000 || prev.startValue,
-					startTime: null,
-					timeLeft: Math.floor(prev.startValue / 1000),
-				};
-			});
-		},
-		[timerState.startTime],
-	);
-
+	//run the timer
 	useEffect(() => {
 		let timeout, interval;
 		const updateTimer = () => {
 			if (!timerState.startTime) return;
 			const elapsed = Date.now() - timerState.startTime;
-			const timeLeft = Math.max(
-				0,
-				Math.floor((timerState.lastValue - elapsed) / 1000),
-			);
+			const timeLeft = Math.max(0, Math.floor(timerState.lastValue - elapsed));
 			setTimerState((prev) => {
 				return {
 					...prev,
@@ -110,16 +91,21 @@ export default function Scoresheet() {
 				};
 			});
 		};
+		//if the timer has a "startTime", the timer should be running
 		if (timerState.startTime) {
+			//delay starting the timer until its value is a whole number of seconds
 			const delay = timerState.lastValue % 1000;
 			timeout = setTimeout(() => {
 				updateTimer();
+				//start running the timer once its value is a multiple of 1000ms
 				interval = setInterval(updateTimer, 1000);
 			}, delay + 1);
 		} else {
+			//there is no "startTime", so clear the timeout and interval, if they exist
 			if (timeout) clearTimeout(timeout);
 			if (interval) clearInterval(interval);
 		}
+		//when this unmounts, clear the timeout and interval if they exist
 		return () => {
 			if (timeout) clearTimeout(timeout);
 			if (interval) clearInterval(interval);
@@ -130,32 +116,148 @@ export default function Scoresheet() {
 	const [selectedQuestion, setSelectedQuestion] = useState(-1);
 	const [selectedTeam, setSelectedTeam] = useState(null);
 
-	const setCurrentQuestion = (q) => {
-		if (selectedRound === -1) return;
-		const selectedRoundData = gameData?.dataFile?.data?.rounds[selectedRound];
-		if (!selectedRoundData) return;
-		const questionDisabled = selectedRoundData.type !== 'wager';
-		if (questionDisabled) return;
-		const question = Number(q);
-		if (isNaN(question)) return;
-		setSelectedQuestion(question);
-	};
-	const setCurrentRound = (r) => {
-		const round = Number(r);
-		if (isNaN(round)) return;
-		if (round === -1) {
-			setSelectedRound(-1);
-			setSelectedQuestion(-1);
+	//reset timer to the last start value
+	const resetTimer = useCallback(
+		(value) => {
+			focusTeamName();
+
+			//can't reset while timer is running unless we specify a value to force
+			if (timerState.startTime && !value) return;
+
+			setTimerState((prev) => {
+				const startValue =
+					(typeof value).toLowerCase() === 'number'
+						? value * 1000
+						: prev.startValue;
+				return {
+					defaultValue: value * 1000 || prev.defaultValue,
+					lastValue: value * 1000 || prev.startValue,
+					startValue: value * 1000 || prev.startValue,
+					startTime: null,
+					timeLeft: Math.floor(startValue),
+				};
+			});
+		},
+		[timerState.startTime],
+	);
+
+	const setCurrentQuestion = useCallback(
+		(q) => {
+			if (selectedRound === -1) return;
+			const selectedRoundData = gameData?.dataFile?.data?.rounds[selectedRound];
+
+			if (!selectedRoundData) return;
+			const questionDisabled = selectedRoundData.type !== 'wager';
+			if (questionDisabled) return;
+			const question = Number(q);
+			if (isNaN(question)) return;
+			setSelectedQuestion(question);
+		},
+		[selectedRound, gameData],
+	);
+	const setCurrentRound = useCallback(
+		(r) => {
+			const round = Number(r);
+			if (isNaN(round)) return;
+			if (round === -1) {
+				setSelectedRound(-1);
+				setSelectedQuestion(-1);
+				return;
+			}
+			const roundData = gameData?.dataFile?.data?.rounds;
+			if (!roundData) return;
+			if (round >= roundData.length) return;
+			const selectedRoundData = roundData[round];
+			const questionDisabled =
+				round === -1 || selectedRoundData.type !== 'wager';
+			const prevRound = selectedRound;
+			setSelectedRound(round);
+			setSelectedQuestion(
+				questionDisabled
+					? -1
+					: prevRound > round
+						? roundData[round].questions.length - 1
+						: 0,
+			);
+		},
+		[gameData, selectedRound],
+	);
+	const nextQuestion = useCallback(() => {
+		if (
+			selectedQuestion === null ||
+			selectedQuestion < 0 ||
+			selectedQuestion >= 3
+		)
 			return;
+		const data = gameData?.dataFile?.data?.rounds;
+		if (!data) return;
+		setCurrentQuestion(selectedQuestion + 1);
+		const anyEntries = gameScore.some((team) => {
+			const round = team.scores[selectedRound];
+			if (round.type === 'wager')
+				return round.wagers[selectedQuestion + 1] !== null;
+			else return round.scores.length > 0;
+		});
+		if (timerState.timeLeft <= 0 || !anyEntries) {
+			if (timerState.startTime) toggleTimer();
+			resetTimer(data[selectedRound].timer);
 		}
-		const roundData = gameData?.dataFile?.data?.rounds;
-		if (!roundData) return;
-		if (round >= roundData.length) return;
-		const selectedRoundData = roundData[round];
-		const questionDisabled = round === -1 || selectedRoundData.type !== 'wager';
-		setSelectedRound(round);
-		setSelectedQuestion(questionDisabled ? -1 : 0);
-	};
+	}, [
+		setCurrentQuestion,
+		selectedQuestion,
+		gameScore,
+		gameData,
+		resetTimer,
+		selectedRound,
+		timerState.startTime,
+		timerState.timeLeft,
+		toggleTimer,
+	]);
+	const previousQuestion = useCallback(() => {
+		if (selectedQuestion === null || selectedQuestion <= 0) return;
+		setCurrentQuestion(selectedQuestion - 1);
+	}, [selectedQuestion, setCurrentQuestion]);
+
+	const nextRound = useCallback(() => {
+		const rounds = gameData?.dataFile?.data?.rounds;
+		if (!rounds || selectedRound >= rounds.length - 1) return;
+		const newRound = selectedRound + 1;
+		setCurrentRound(newRound);
+		let newQuestion;
+		if (rounds[newRound]?.type === 'wager') newQuestion = 0;
+		else newQuestion = -1;
+		setCurrentQuestion(newQuestion);
+		const anyEntries = gameScore.some((team) => {
+			const round = team.scores[newRound];
+			if (round.type === 'wager') return round.wagers[0] !== null;
+			else return round.scores.length > 0;
+		});
+		if (timerState.timeLeft <= 0 || !anyEntries) {
+			if (timerState.startTime) toggleTimer();
+			resetTimer(rounds[newRound].timer);
+		}
+		focusTeamName();
+	}, [
+		gameData,
+		selectedRound,
+		gameScore,
+		timerState.timeLeft,
+		timerState.startTime,
+		resetTimer,
+		setCurrentRound,
+		setCurrentQuestion,
+		toggleTimer,
+	]);
+
+	const previousRound = useCallback(() => {
+		const rounds = gameData?.dataFile?.data?.rounds;
+		if (!rounds || selectedRound < 0) return;
+		const newRound = selectedRound - 1;
+		setCurrentRound(newRound);
+		if (newRound !== -1 && rounds[newRound]?.type === 'wager') {
+			setCurrentQuestion(rounds[newRound].questions.length - 1);
+		} else setCurrentQuestion(-1);
+	}, [gameData, selectedRound, setCurrentQuestion, setCurrentRound]);
 
 	const [showAnnouncementsModal, setShowAnnouncementsModal] = useState(true);
 	const handleCloseAnnouncementsModal = () => setShowAnnouncementsModal(false);
@@ -872,10 +974,7 @@ export default function Scoresheet() {
 							key: 'ArrowLeft',
 							keyDisplay: 'Left',
 						},
-						fn: () => {
-							if (selectedQuestion === null || selectedQuestion <= 0) return;
-							setSelectedQuestion(selectedQuestion - 1);
-						},
+						fn: previousQuestion,
 						disabled: () => selectedQuestion <= 0,
 					},
 					{
@@ -886,21 +985,7 @@ export default function Scoresheet() {
 							key: 'ArrowRight',
 							keyDisplay: 'Right',
 						},
-						fn: () => {
-							if (
-								selectedQuestion === null ||
-								selectedQuestion < 0 ||
-								selectedQuestion >= 3
-							)
-								return;
-							const data = gameData?.dataFile?.data?.rounds;
-							if (!data) return;
-							setSelectedQuestion((prev) => prev + 1);
-							if (timerState.timeLeft <= 0) {
-								if (timerState.startTime) toggleTimer();
-								resetTimer(data[selectedRound].timer);
-							}
-						},
+						fn: nextQuestion,
 						disabled: () => selectedQuestion < 0 || selectedQuestion >= 3,
 					},
 					{
@@ -911,16 +996,7 @@ export default function Scoresheet() {
 							key: 'ArrowLeft',
 							keyDisplay: 'Left',
 						},
-						fn: () => {
-							const data = gameData?.dataFile?.data?.rounds;
-							if (!data) return;
-							const newRound = selectedRound - 1;
-							if (newRound < -1 || newRound >= data.length) return;
-							setSelectedRound(newRound);
-							if (newRound !== -1 && data[newRound]?.type === 'wager')
-								setSelectedQuestion(0);
-							else setSelectedQuestion(-1);
-						},
+						fn: previousRound,
 						disabled: () => selectedRound < 0,
 					},
 					{
@@ -931,20 +1007,7 @@ export default function Scoresheet() {
 							key: 'ArrowRight',
 							keyDisplay: 'Right',
 						},
-						fn: () => {
-							const data = gameData?.dataFile?.data?.rounds;
-							if (!data) return;
-							const newRound = selectedRound + 1;
-							if (newRound >= data.length) return;
-							setSelectedRound(newRound);
-
-							if (data[newRound]?.type === 'wager') setSelectedQuestion(0);
-							else setSelectedQuestion(-1);
-							if (timerState.timeLeft <= 0) {
-								if (timerState.startTime) toggleTimer();
-								resetTimer(data[newRound].timer);
-							}
-						},
+						fn: nextRound,
 						disabled: () => {
 							const data = gameData?.dataFile?.data?.rounds;
 							return selectedRound >= data.length - 1;
@@ -989,6 +1052,10 @@ export default function Scoresheet() {
 		hideAnswers,
 		toggleHideAnswers,
 		rankings,
+		nextQuestion,
+		nextRound,
+		previousQuestion,
+		previousRound,
 	]);
 
 	const handleKey = useCallback(
@@ -1120,71 +1187,82 @@ export default function Scoresheet() {
 
 	return (
 		<div id="scoresheet" className="container">
-			<TeamNameInputContext.Provider value={{ teamNameRef, focusTeamName }}>
-				<HandoutContext.Provider value={showHandoutAnswers}>
-					<AnnouncementsContext.Provider value={setShowAnnouncementsModal}>
-						<ScoreModalContext.Provider
-							value={{ showScore, showScoreModal, hideScoreModal }}
-						>
-							<SelectionContext.Provider
-								value={{
-									selectedRound,
-									selectedQuestion,
-									setCurrentRound,
-									setCurrentQuestion,
-									selectedTeam,
-									setSelectedTeam,
-								}}
+			<MenuContext.Provider value={menuItems}>
+				<TeamNameInputContext.Provider value={{ teamNameRef, focusTeamName }}>
+					<HandoutContext.Provider value={showHandoutAnswers}>
+						<AnnouncementsContext.Provider value={setShowAnnouncementsModal}>
+							<ScoreModalContext.Provider
+								value={{ showScore, showScoreModal, hideScoreModal }}
 							>
-								<TimerContext.Provider
-									value={{ timerState, setTimerState, toggleTimer, resetTimer }}
+								<SelectionContext.Provider
+									value={{
+										selectedRound,
+										selectedQuestion,
+										setCurrentRound,
+										setCurrentQuestion,
+										nextRound,
+										previousRound,
+										nextQuestion,
+										previousQuestion,
+										selectedTeam,
+										setSelectedTeam,
+									}}
 								>
-									<HideAnswersContext.Provider
-										value={{ hideAnswers, toggleHideAnswers }}
+									<TimerContext.Provider
+										value={{
+											timerState,
+											setTimerState,
+											toggleTimer,
+											resetTimer,
+										}}
 									>
-										<AnnouncementsModal
-											onHide={handleCloseAnnouncementsModal}
-											show={showAnnouncementsModal}
-										/>
-										<HandoutModal
-											id={'handout-modal'}
-											onHide={hideHandoutAnswers}
-											show={showHandout}
-										/>
-										<TeamInfoModal
-											id={'team-info-modal'}
-											onHide={hideTeamInfoModal}
-											show={showTeamInfo}
-										/>
-										<DeleteTeamModal
-											id={'delete-team-modal'}
-											onHide={hideDeleteTeam}
-											show={showDeleteTeam}
-										/>
-										<ScoreModal
-											id={'score-modal'}
-											onHide={hideScoreModal}
-											show={showScore}
-										/>
-										<MenuBar items={menuItems} />
-										{selectedRound !== null ? <TeamForm /> : ''}
-										<div className="f-1 d-flex flex-column px-4">
-											<Row sm={1} md={2} className="f-1">
-												<Col sm={12} md={8}>
-													<ScoreTable openTeamInfo={showTeamInfoModal} />
-												</Col>
-												<Col sm={12} md={4} id="info-panel">
-													<InfoPanel />
-												</Col>
-											</Row>
-										</div>
-									</HideAnswersContext.Provider>
-								</TimerContext.Provider>
-							</SelectionContext.Provider>
-						</ScoreModalContext.Provider>
-					</AnnouncementsContext.Provider>
-				</HandoutContext.Provider>
-			</TeamNameInputContext.Provider>
+										<HideAnswersContext.Provider
+											value={{ hideAnswers, toggleHideAnswers }}
+										>
+											<AnnouncementsModal
+												onHide={handleCloseAnnouncementsModal}
+												show={showAnnouncementsModal}
+											/>
+											<HandoutModal
+												id={'handout-modal'}
+												onHide={hideHandoutAnswers}
+												show={showHandout}
+											/>
+											<TeamInfoModal
+												id={'team-info-modal'}
+												onHide={hideTeamInfoModal}
+												show={showTeamInfo}
+											/>
+											<DeleteTeamModal
+												id={'delete-team-modal'}
+												onHide={hideDeleteTeam}
+												show={showDeleteTeam}
+											/>
+											<ScoreModal
+												id={'score-modal'}
+												onHide={hideScoreModal}
+												show={showScore}
+											/>
+											<MenuBar items={menuItems} />
+											{selectedRound !== null ? <TeamForm /> : ''}
+											<div className="f-1 d-flex flex-column px-4">
+												<Row sm={1} md={2} className="f-1">
+													<Col sm={12} md={8}>
+														<ScoreTable openTeamInfo={showTeamInfoModal} />
+													</Col>
+													<Col sm={12} md={4} id="info-panel">
+														<InfoPanel />
+													</Col>
+												</Row>
+											</div>
+										</HideAnswersContext.Provider>
+									</TimerContext.Provider>
+								</SelectionContext.Provider>
+							</ScoreModalContext.Provider>
+						</AnnouncementsContext.Provider>
+					</HandoutContext.Provider>
+				</TeamNameInputContext.Provider>
+			</MenuContext.Provider>
 		</div>
 	);
 }

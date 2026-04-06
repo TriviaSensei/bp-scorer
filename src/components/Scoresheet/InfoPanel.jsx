@@ -40,12 +40,8 @@ function RoundHeader({ title, answerToggle, toggleHideAnswers, hideAnswers }) {
 export default function InfoPanel() {
 	const { hideAnswers, toggleHideAnswers } = useContext(HideAnswersContext);
 
-	const {
-		selectedQuestion,
-		selectedRound,
-		setCurrentQuestion,
-		setCurrentRound,
-	} = useContext(SelectionContext);
+	const { selectedQuestion, selectedRound, nextRound, nextQuestion } =
+		useContext(SelectionContext);
 	const { showScoreModal } = useContext(ScoreModalContext);
 	const { gameData, setGameDataField } = useContext(GameDataContext);
 	const { gameScore } = useContext(GameScoreContext);
@@ -58,8 +54,6 @@ export default function InfoPanel() {
 			return null;
 		return rounds[selectedRound];
 	}, [gameData, selectedRound]);
-
-	const { focusTeamName } = useContext(TeamNameInputContext);
 
 	const handleSetGameDataField = (field) => {
 		return (e) => {
@@ -80,24 +74,6 @@ export default function InfoPanel() {
 	};
 
 	// const { setTimerState } = useContext(TimerContext);
-
-	const nextQuestion = () => {
-		if (
-			selectedQuestion === null ||
-			selectedQuestion < 0 ||
-			selectedQuestion >= 3
-		)
-			return;
-		setCurrentQuestion(selectedQuestion + 1);
-		focusTeamName();
-	};
-
-	const nextRound = () => {
-		const rounds = gameData?.dataFile?.data?.rounds;
-		if (!rounds || selectedRound >= rounds.length - 1) return;
-		setCurrentRound(selectedRound + 1);
-		focusTeamName();
-	};
 
 	const activeTeams = useMemo(() => {
 		if (!gameScore || !Array.isArray(gameScore)) return 0;

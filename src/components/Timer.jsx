@@ -25,7 +25,7 @@ export default function Timer() {
 						? Math.max(0, prev.startValue + sec * 1000)
 						: prev.startValue,
 				lastValue: Math.max(0, prev.lastValue + sec * 1000),
-				timeLeft: Math.max(0, prev.timeLeft + sec),
+				timeLeft: Math.max(0, prev.timeLeft + sec * 1000),
 			};
 		});
 	};
@@ -33,8 +33,12 @@ export default function Timer() {
 	return (
 		<div className="timer-container">
 			<div
-				className={`m-auto me-2 f-1 timer ${timerState.timeLeft <= 0 ? 'time-up' : timerState.timeLeft <= 15 ? 'low-time' : ''}`}
-			>{`${Math.floor(timerState.timeLeft / 60)}:${(timerState.timeLeft % 60).toString().padStart(2, 0)}`}</div>
+				className={`m-auto me-2 f-1 timer ${timerState.timeLeft <= 0 ? 'time-up' : timerState.timeLeft <= 15000 ? 'low-time' : ''}`}
+			>{`${Math.floor(timerState.timeLeft / 60000)}:${Math.floor(
+				(timerState.timeLeft % 60000) / 1000,
+			)
+				.toString()
+				.padStart(2, 0)}`}</div>
 			<div className="d-flex flex-column">
 				<div className="d-flex flex-row mb-2">
 					<Button
