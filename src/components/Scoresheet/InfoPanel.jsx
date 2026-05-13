@@ -13,6 +13,7 @@ import Timer from '../Timer';
 import { GameScoreContext } from '../../contexts/GameScoreContext';
 import Button from 'react-bootstrap/Button';
 import { ScoreModalContext } from '../../contexts/ScoreModalContext';
+import { TimerContext } from '../../contexts/TimerContext';
 function RoundHeader({ title, answerToggle, toggleHideAnswers, hideAnswers }) {
 	return (
 		<div className="w-100 d-flex flex-row justify-content-between mb-2">
@@ -39,7 +40,8 @@ function RoundHeader({ title, answerToggle, toggleHideAnswers, hideAnswers }) {
 
 export default function InfoPanel() {
 	const { hideAnswers, toggleHideAnswers } = useContext(HideAnswersContext);
-
+	const { timerState } = useContext(TimerContext);
+	const { popped } = timerState;
 	const { selectedQuestion, selectedRound, nextRound, nextQuestion } =
 		useContext(SelectionContext);
 	const { showScoreModal } = useContext(ScoreModalContext);
@@ -287,7 +289,7 @@ export default function InfoPanel() {
 				) : (
 					<></>
 				)}
-				<Timer defaultValue={currentRound.timer * 1000} />
+				{popped ? <></> : <Timer defaultValue={currentRound.timer * 1000} />}
 				{currentRound.type !== 'tiebreaker' ? (
 					<InfoBox
 						className={'mt-2'}

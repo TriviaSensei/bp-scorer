@@ -33,6 +33,9 @@ import ScoreTable from './Scoresheet/ScoreTable';
 import InfoPanel from './Scoresheet/InfoPanel';
 import DeleteTeamModal from './DeleteTeamModal';
 
+import FloatingWindow from './FloatingWindow';
+import Timer from './Timer';
+
 export default function Scoresheet() {
 	const { gameData, setGameData } = useContext(GameDataContext);
 	const { gameScore, setGameScore, rankings } = useContext(GameScoreContext);
@@ -43,6 +46,7 @@ export default function Scoresheet() {
 		lastValue: 0, //the time left, in milliseconds, when the timer last last started
 		startTime: null, //timestamp when timer started
 		timeLeft: 0, //current time left, in seconds, used to update the actual display
+		popped: false,
 	});
 
 	const teamNameRef = useRef();
@@ -116,6 +120,12 @@ export default function Scoresheet() {
 	const [selectedQuestion, setSelectedQuestion] = useState(-1);
 	const [selectedTeam, setSelectedTeam] = useState(null);
 
+	const currentRound = useMemo(() => {
+		const rounds = gameData?.dataFile?.data?.rounds;
+		if (!rounds || selectedRound < 0 || selectedRound > rounds.length - 1)
+			return null;
+		return rounds[selectedRound];
+	}, [gameData, selectedRound]);
 	//reset timer to the last start value
 	const resetTimer = useCallback(
 		(value) => {
@@ -130,6 +140,7 @@ export default function Scoresheet() {
 						? value * 1000
 						: prev.startValue;
 				return {
+					...prev,
 					defaultValue: value * 1000 || prev.defaultValue,
 					lastValue: value * 1000 || prev.startValue,
 					startValue: value * 1000 || prev.startValue,
@@ -1245,7 +1256,7 @@ export default function Scoresheet() {
 											/>
 											<MenuBar items={menuItems} />
 											{selectedRound !== null ? <TeamForm /> : ''}
-											<div className="f-1 d-flex flex-column px-4">
+											<div className="f-1 d-flex flex-column px-4 position-relative">
 												<Row sm={1} md={2} className="f-1">
 													<Col sm={12} md={8}>
 														<ScoreTable openTeamInfo={showTeamInfoModal} />
@@ -1254,6 +1265,13 @@ export default function Scoresheet() {
 														<InfoPanel />
 													</Col>
 												</Row>
+												{timerState?.popped ? (
+													<FloatingWindow title={'Timer'}>
+														<Timer defaultValue={currentRound.timer * 1000} />
+													</FloatingWindow>
+												) : (
+													<></>
+												)}
 											</div>
 										</HideAnswersContext.Provider>
 									</TimerContext.Provider>

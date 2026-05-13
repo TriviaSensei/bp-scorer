@@ -1,0 +1,31 @@
+.floating-window {
+	display: flex;
+	flex-direction: column;
+	position: absolute;
+	z-index: 300;
+	border: 2px solid black;
+	border-radius: 5px;
+	.title-bar {
+		padding: 0.2em 0.5em;
+		border-radius: 5px 5px 0 0;
+		width: 100%;
+		display: flex;
+		flex-direction: row;
+		background-color: var(--light-blue);
+		font-size: 1rem;
+		cursor: pointer;
+		.title-text {
+			font-size: 1rem;
+			text-align: center;
+			flex: 1;
+			color: var(--text-color);
+		}
+	}
+	.window-body {
+		width: 100%;
+		background-color: var(--light-gray);
+		color: var(--dark-gray);
+		padding: 0.5em;
+		border-radius: 0 0 5px 5px;
+	}
+}

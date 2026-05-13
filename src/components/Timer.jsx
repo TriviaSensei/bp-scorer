@@ -9,6 +9,14 @@ export default function Timer() {
 	const { timerState, setTimerState, toggleTimer, resetTimer } =
 		useContext(TimerContext);
 
+	const togglePop = () => {
+		setTimerState((prev) => {
+			return {
+				...prev,
+				popped: !prev.popped,
+			};
+		});
+	};
 	const { focusTeamName } = useContext(TeamNameInputContext);
 
 	const editMinutes = [-1, 1];
@@ -53,8 +61,12 @@ export default function Timer() {
 						onClick={resetTimer}
 						size={'sm'}
 						disabled={timerState.startTime}
+						className={'me-2'}
 					>
 						Reset
+					</Button>
+					<Button onClick={togglePop} size={'sm'} className={'me-2'}>
+						{timerState.popped ? 'Pop in' : 'Pop out'}
 					</Button>
 				</div>
 				<div className="d-flex flex-row">
