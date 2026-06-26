@@ -1265,7 +1265,7 @@ export default function Scoresheet() {
 														<InfoPanel />
 													</Col>
 												</Row>
-												{timerState?.popped ? (
+												{timerState?.popped && currentRound?.timer ? (
 													<FloatingWindow title={'Timer'}>
 														<Timer defaultValue={currentRound.timer * 1000} />
 													</FloatingWindow>
