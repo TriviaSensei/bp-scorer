@@ -176,16 +176,28 @@ export default function InfoPanel() {
 					<>
 						<>
 							{/* category list on the first question */}
-							{selectedQuestion === 0 ? (
+							{currentRound?.questions ? (
 								<InfoBox title={'Categories'}>
 									<ol className="cat-list">
 										{currentRound.questions.map((q, i) => {
-											return <li key={i}>{q.category}</li>;
+											return (
+												<li
+													key={i}
+													className={
+														selectedQuestion === i ? 'highlighted' : ''
+													}
+												>
+													{q.category}
+												</li>
+											);
 										})}
 									</ol>
 								</InfoBox>
-							) : selectedQuestion === currentRound.questions?.length - 1 &&
-							  nextTitle ? (
+							) : (
+								<></>
+							)}
+							{selectedQuestion === currentRound.questions?.length - 1 &&
+							nextTitle ? (
 								<InfoBox
 									title={`Pick up ${nextTitle} round`}
 								>{`As you turn in your answers for this one, don't forget to pick up your ${nextTitle} round!`}</InfoBox>

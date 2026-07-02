@@ -32,6 +32,10 @@
 			display: flex;
 			flex-direction: column;
 		}
+		li.highlighted {
+			color: red;
+			font-weight: bold;
+		}
 	}
 
 	.song-table {
