@@ -942,6 +942,13 @@ export default function Scoresheet() {
 													return true;
 												}
 											});
+											newScore.sort((a, b) => {
+												return a.active && !b.active
+													? -1
+													: !a.active && b.active
+														? 1
+														: 0;
+											});
 											return newScore;
 										});
 									}
@@ -953,6 +960,13 @@ export default function Scoresheet() {
 													tm.active = true;
 													return true;
 												}
+											});
+											newScore.sort((a, b) => {
+												return a.active && !b.active
+													? -1
+													: !a.active && b.active
+														? 1
+														: 0;
 											});
 											return newScore;
 										});
