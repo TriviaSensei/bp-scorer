@@ -49,6 +49,8 @@ export default function Scoresheet() {
 		popped: false,
 	});
 
+	const [windowPosition, setWindowPosition] = useState({ x: 0, y: 0 });
+
 	const teamNameRef = useRef();
 	const focusTeamName = () => {
 		if (teamNameRef.current) teamNameRef.current.focus();
@@ -1280,7 +1282,11 @@ export default function Scoresheet() {
 													</Col>
 												</Row>
 												{timerState?.popped && currentRound?.timer ? (
-													<FloatingWindow title={'Timer'}>
+													<FloatingWindow
+														title={'Timer'}
+														position={windowPosition}
+														setPosition={setWindowPosition}
+													>
 														<Timer defaultValue={currentRound.timer * 1000} />
 													</FloatingWindow>
 												) : (

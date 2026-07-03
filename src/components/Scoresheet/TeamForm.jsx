@@ -31,9 +31,19 @@ export default function TeamForm() {
 	const { teamNameRef, focusTeamName } = useContext(TeamNameInputContext);
 
 	const handleChangeScore = (e) => {
-		const val = Number(e.target.value);
-		if (isNaN(val) || val === 0) setQuestionScore('');
-		setQuestionScore(val);
+		setQuestionScore((prev) => {
+			let currentRound;
+			if (selectedRound >= 0) {
+				currentRound = gameData?.dataFile?.data?.rounds[selectedRound];
+				if (!currentRound) return prev;
+			}
+			if (e.target.value.trim().length === 0) return '';
+			else if (currentRound.type === 'final' && e.target.value === '-')
+				return '-';
+			const val = Number(e.target.value);
+			if (isNaN(val) || val !== Math.floor(val)) return prev;
+			return val;
+		});
 	};
 
 	const handleChangeWager = (e) => {
@@ -513,8 +523,9 @@ export default function TeamForm() {
 									<div className="labeled-input">
 										<div className="input-label">Score</div>
 										<input
-											type="number"
+											type="text"
 											name="score"
+											className="num-input"
 											value={questionScore}
 											onChange={handleChangeScore}
 										></input>
@@ -530,6 +541,7 @@ export default function TeamForm() {
 											type="number"
 											min="1"
 											name="playerCount"
+											className="num-input"
 											value={playerCount}
 											onChange={handleChangePlayerCount}
 										></input>

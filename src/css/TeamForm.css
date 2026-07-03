@@ -18,7 +18,7 @@
 			height: 2.5em;
 		}
 
-		input[type='number'],
+		input.num-input,
 		select[name='wager'] {
 			width: 4em;
 		}

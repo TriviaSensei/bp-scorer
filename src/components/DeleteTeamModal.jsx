@@ -17,7 +17,6 @@ export default function DeleteTeamModal(props) {
 	}, [gameScore, selectedTeam]);
 
 	const deleteTeam = () => {
-		if (selectedRound >= 0) return;
 		let teamDeleted = '';
 		setGameScore((prev) => {
 			return prev.filter((t) => {
@@ -47,30 +46,35 @@ export default function DeleteTeamModal(props) {
 		props.onHide();
 	};
 
-	const errMsg =
-		'For data-keeping reasons, teams should only be deleted "pregame", if entered mistakenly. If you wish to delete this team, switch to the "pregame" round first. If a team has left before the end of the game, you may set them to "inactive" instead';
-
 	return (
 		<Modal {...props} size="lg" aria-labelledby="delete-modal-title" centered>
 			<Modal.Header closeButton>
 				<Modal.Title id="delete-modal-title">Delete Team</Modal.Title>
 			</Modal.Header>
 			<Modal.Body>
-				{selectedRound >= 0
-					? errMsg
-					: `Are you sure you wish to delete "${teamData?.name || 'this team'}"? All of their data for this game will be erased. This cannot be undone.`}
+				<p>
+					For data-keeping reasons, teams should only be deleted if entered
+					mistakenly.{' '}
+					<strong>
+						If a team has left before the end of the game, set them to inactive
+						instead.
+					</strong>
+				</p>
+				<p>
+					Are you wish to delete "<span>{teamData?.name || 'this team'}</span>
+					"? All of their data for this game will be erased.{' '}
+					<strong>This cannot be undone.</strong>
+				</p>
 			</Modal.Body>
 			<Modal.Footer>
 				<Button variant={'warning'} onClick={setInactive}>
-					Set Inactive
+					Set inactive
 				</Button>
-				{selectedRound < 0 ? (
-					<Button onClick={deleteTeam} variant={'danger'}>
-						Delete
-					</Button>
-				) : (
-					<></>
-				)}
+
+				<Button onClick={deleteTeam} variant={'danger'}>
+					{selectedRound < 0 ? 'Delete' : 'Delete anyway'}
+				</Button>
+
 				<Button variant={'secondary'} onClick={props.onHide}>
 					Cancel
 				</Button>
