@@ -105,6 +105,11 @@ export default function ScoreTable({ openTeamInfo }) {
 
 	if (!data) return <></>;
 	let firstHandoutRound = data.findIndex((rd) => rd.type !== 'wager');
+
+	const sortedGameScore = gameScore.sort((a, b) => {
+		return a.active && !b.active ? -1 : b.active && !a.active ? 1 : 0;
+	});
+
 	return (
 		<div id="score-table" className="no-select" ref={divRef}>
 			<table>
@@ -250,7 +255,7 @@ export default function ScoreTable({ openTeamInfo }) {
 							<td>No teams added</td>
 						</tr>
 					) : (
-						gameScore.map((team, i) => {
+						sortedGameScore.map((team, i) => {
 							return (
 								<tr
 									key={i}
