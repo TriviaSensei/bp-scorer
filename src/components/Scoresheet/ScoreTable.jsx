@@ -110,8 +110,6 @@ export default function ScoreTable({ openTeamInfo }) {
 		return a.active && !b.active ? -1 : b.active && !a.active ? 1 : 0;
 	});
 
-	console.log(sortedGameScore);
-
 	return (
 		<div id="score-table" className="no-select" ref={divRef}>
 			<table>
